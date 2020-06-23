@@ -281,7 +281,7 @@ pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Resul
         return Err(Error::UnhandledType(ty));
     }
 
-    // SAFETY: This is safe because we check if the value will fit just above.
+    // SAFETY: This is safe because we check if the value will fit just above and Type has repr(u32).
     let ty: Type = unsafe { std::mem::transmute::<u32, Type>(ty) };
 
     match ty {
