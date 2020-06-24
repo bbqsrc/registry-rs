@@ -43,7 +43,7 @@ impl<'a> Debug for KeyRef<'a> {
 impl<'a> KeyRef<'a> {
     #[inline]
     pub fn open<P>(&self, sec: Security) -> Result<RegKey, crate::key::Error> {
-        crate::key::open_hkey(self.regkey.0, &self.name, sec).map(RegKey)
+        crate::key::open_hkey(self.regkey.handle, &self.name, sec).map(|handle| RegKey { handle })
     }
 }
 
@@ -57,7 +57,7 @@ impl<'a> Iterator for Keys<'a> {
 
         let result = unsafe {
             RegEnumKeyExW(
-                self.regkey.0,
+                self.regkey.handle,
                 self.index,
                 self.buf.as_mut_ptr(),
                 &mut len,
@@ -98,7 +98,7 @@ impl<'a> Keys<'a> {
 
         let result = unsafe {
             RegQueryInfoKeyW(
-                regkey.0,
+                regkey.handle,
                 null_mut(),
                 null_mut(),
                 null_mut(),

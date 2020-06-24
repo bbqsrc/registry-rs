@@ -76,4 +76,16 @@ mod tests {
         let results = regkey.values().collect::<Result<Vec<_>, _>>().unwrap();
         println!("{:?}", &results);
     }
+
+    #[test]
+    fn set_value_and_delete() {
+        let regkey = Hive::CurrentUser
+            .create(r"Test\registry-rust-crate", Security::AllAccess)
+            .unwrap();
+        regkey
+            .set_value("test", &Data::String("Meow meow".to_string()))
+            .unwrap();
+
+        Hive::CurrentUser.delete("Test", true).unwrap();
+    }
 }

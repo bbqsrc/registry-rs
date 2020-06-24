@@ -10,7 +10,7 @@ use winapi::um::winreg::{
 use crate::key::{self, Error};
 use crate::{sec::Security, RegKey};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Hive {
     ClassesRoot,
     CurrentConfig,
@@ -42,7 +42,7 @@ impl Hive {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        key::open_hkey(self.as_hkey(), path, sec).map(RegKey)
+        key::open_hkey(self.as_hkey(), path, sec).map(|handle| RegKey { handle })
     }
 
     #[inline]
@@ -52,7 +52,7 @@ impl Hive {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        key::create_hkey(self.as_hkey(), path, sec).map(RegKey)
+        key::create_hkey(self.as_hkey(), path, sec).map(|handle| RegKey { handle })
     }
 
     #[inline]

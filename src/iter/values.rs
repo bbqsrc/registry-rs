@@ -91,7 +91,7 @@ impl<'a> Iterator for Values<'a> {
 
         let result = unsafe {
             RegEnumValueW(
-                self.regkey.0,
+                self.regkey.handle,
                 self.index,
                 self.name_buf.as_mut_ptr(),
                 &mut name_len,
@@ -139,7 +139,7 @@ impl<'a> Values<'a> {
 
         let result = unsafe {
             RegQueryInfoKeyW(
-                regkey.0,
+                regkey.handle,
                 null_mut(),
                 null_mut(),
                 null_mut(),

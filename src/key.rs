@@ -35,14 +35,15 @@ impl From<Infallible> for Error {
     }
 }
 
-#[repr(transparent)]
 #[derive(Debug)]
-pub struct RegKey(pub(crate) HKEY);
+pub struct RegKey {
+    pub(crate) handle: HKEY,
+}
 
 impl Drop for RegKey {
     fn drop(&mut self) {
         // No point checking the return value here.
-        unsafe { RegCloseKey(self.0) };
+        unsafe { RegCloseKey(self.handle) };
     }
 }
 
@@ -54,7 +55,7 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        open_hkey(self.0, path, sec).map(RegKey)
+        open_hkey(self.handle, path, sec).map(|handle| RegKey { handle })
     }
 
     #[inline]
@@ -64,7 +65,7 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        create_hkey(self.0, path, sec).map(RegKey)
+        create_hkey(self.handle, path, sec).map(|handle| RegKey { handle })
     }
 
     #[inline]
@@ -74,7 +75,11 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        delete_hkey(self.0, path, is_recursive)
+        delete_hkey(self.handle, path, is_recursive)
+    }
+    #[inline]
+    pub fn delete_self(self, is_recursive: bool) -> Result<(), Error> {
+        delete_hkey(self.handle, U16CString::default(), is_recursive)
     }
 
     #[inline]
@@ -83,7 +88,7 @@ impl RegKey {
         S: TryInto<U16CString>,
         S::Error: Into<value::Error>,
     {
-        value::query_value(self.0, value_name)
+        value::query_value(self.handle, value_name)
     }
 
     #[inline]
@@ -92,7 +97,7 @@ impl RegKey {
         S: TryInto<U16CString>,
         S::Error: Into<value::Error>,
     {
-        value::set_value(self.0, value_name, data)
+        value::set_value(self.handle, value_name, data)
     }
 
     #[inline]
@@ -117,7 +122,7 @@ impl RegKey {
         let result = unsafe { RegOpenCurrentUser(sec.bits(), &mut hkey) };
 
         if result == 0 {
-            return Ok(RegKey(hkey));
+            return Ok(RegKey { handle: hkey });
         }
 
         let io_error = std::io::Error::from_raw_os_error(result);
@@ -165,6 +170,10 @@ where
     } else {
         unsafe { RegDeleteKeyW(base, path.as_ptr()) }
     };
+
+    if result == 0 {
+        return Ok(());
+    }
 
     let io_error = std::io::Error::from_raw_os_error(result);
     let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
