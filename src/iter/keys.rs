@@ -8,6 +8,7 @@ use crate::key::RegKey;
 use crate::sec::Security;
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Invalid UTF-16")]
     InvalidUtf16(#[from] std::string::FromUtf16Error),

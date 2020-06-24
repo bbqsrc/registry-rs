@@ -2,13 +2,16 @@ use std::ptr::null_mut;
 
 use widestring::{U16CStr, U16CString, U16String};
 use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{RegCloseKey, RegCreateKeyExW, RegOpenCurrentUser, RegOpenKeyExW};
+use winapi::um::winreg::{
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
+};
 
 use crate::iter;
 use crate::sec::Security;
 use crate::value;
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Provided path not found: {0:?}")]
     NotFound(String, #[source] std::io::Error),
@@ -51,6 +54,15 @@ impl RegKey {
     {
         let path = U16CString::new(path.into())?;
         create_hkey(self.0, path, sec).map(RegKey)
+    }
+
+    #[inline]
+    pub fn delete<P>(&self, path: P, is_recursive: bool) -> Result<(), Error>
+    where
+        P: Into<U16String>,
+    {
+        let path = U16CString::new(path.into())?;
+        delete_hkey(self.0, path, is_recursive)
     }
 
     #[inline]
@@ -116,6 +128,28 @@ where
     if result == 0 {
         return Ok(hkey);
     }
+
+    let io_error = std::io::Error::from_raw_os_error(result);
+    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
+    match io_error.kind() {
+        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
+        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
+        _ => Err(Error::Unknown(path, io_error)),
+    }
+}
+
+#[inline]
+pub(crate) fn delete_hkey<P>(base: HKEY, path: P, is_recursive: bool) -> Result<(), Error>
+where
+    P: AsRef<U16CStr>,
+{
+    let path = path.as_ref();
+
+    let result = if is_recursive {
+        unsafe { RegDeleteTreeW(base, path.as_ptr()) }
+    } else {
+        unsafe { RegDeleteKeyW(base, path.as_ptr()) }
+    };
 
     let io_error = std::io::Error::from_raw_os_error(result);
     let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());

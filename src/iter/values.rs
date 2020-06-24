@@ -8,6 +8,7 @@ use crate::key::RegKey;
 use crate::{Data, U16AlignedU8Vec};
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Invalid UTF-16")]
     InvalidUtf16(#[from] std::string::FromUtf16Error),

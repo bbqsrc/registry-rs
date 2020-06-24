@@ -52,6 +52,15 @@ impl Hive {
         let path = U16CString::new(path.into())?;
         key::create_hkey(self.as_hkey(), path, sec).map(RegKey)
     }
+
+    #[inline]
+    pub fn delete<P>(&self, path: P, is_recursive: bool) -> Result<(), Error>
+    where
+        P: Into<U16String>,
+    {
+        let path = U16CString::new(path.into())?;
+        key::delete_hkey(self.as_hkey(), path, is_recursive)
+    }
 }
 
 impl Display for Hive {

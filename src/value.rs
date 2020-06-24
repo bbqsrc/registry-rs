@@ -6,6 +6,7 @@ use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegQueryValueExW, RegSetValueExW};
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Error determining required buffer size for value '{0}'")]
     BufferSize(String, #[source] std::io::Error),
