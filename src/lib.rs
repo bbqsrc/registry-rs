@@ -31,6 +31,20 @@ impl U16AlignedU8Vec {
         buf.truncate(size);
         U16AlignedU8Vec(buf)
     }
+
+    pub fn into_u16_vec(mut self) -> Vec<u16> {
+        let remainder = self.len() % 2;
+
+        if remainder > 0 {
+            self.0.push(0);
+        }
+        self.shrink_to_fit();
+
+        let (ptr, len, capacity) = (self.as_mut_ptr(), self.len(), self.capacity());
+        std::mem::forget(self);
+
+        unsafe { Vec::from_raw_parts(ptr as *mut u16, len / 2, capacity / 2) }
+    }
 }
 
 impl Deref for U16AlignedU8Vec {
@@ -50,6 +64,7 @@ impl DerefMut for U16AlignedU8Vec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::TryInto;
 
     #[test]
     fn open_key() {
@@ -83,8 +98,29 @@ mod tests {
             .create(r"Test\registry-rust-crate", Security::AllAccess)
             .unwrap();
         regkey
-            .set_value("test", &Data::String("Meow meow".to_string()))
+            .set_value("test", &Data::String("Meow meow".try_into().unwrap()))
             .unwrap();
+        regkey
+            .set_value(
+                "test2",
+                &Data::MultiString(vec![
+                    "Meow meow".try_into().unwrap(),
+                    "Woop woop".try_into().unwrap(),
+                ]),
+            )
+            .unwrap();
+        regkey.set_value("nothing", &Data::None).unwrap();
+        regkey
+            .set_value("some binary", &Data::Binary(vec![1, 2, 3, 4, 255]))
+            .unwrap();
+        regkey.set_value("u32", &Data::U32(0x1234FEFE)).unwrap();
+        regkey.set_value("u32be", &Data::U32BE(0x1234FEFE)).unwrap();
+        regkey
+            .set_value("u64", &Data::U64(0x1234FEFE_1234FEFE))
+            .unwrap();
+
+        let results = regkey.values().collect::<Result<Vec<_>, _>>().unwrap();
+        println!("{:?}", &results);
 
         Hive::CurrentUser.delete("Test", true).unwrap();
     }

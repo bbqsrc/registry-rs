@@ -66,13 +66,13 @@ impl Type {
 #[derive(Debug, Clone)]
 pub enum Data {
     None,
-    String(String),
-    ExpandString(String),
+    String(U16CString),
+    ExpandString(U16CString),
     Binary(Vec<u8>),
     U32(u32),
     U32BE(u32),
     Link,
-    MultiString(Vec<String>),
+    MultiString(Vec<U16CString>),
     ResourceList,
     FullResourceDescriptor,
     ResourceRequirementsList,
@@ -116,7 +116,7 @@ impl Data {
 }
 
 #[inline(always)]
-fn multi_string_bytes(s: &[String]) -> Vec<u8> {
+fn multi_string_bytes(s: &[U16CString]) -> Vec<u8> {
     let mut vec = s
         .iter()
         .flat_map(|x| string_to_utf16_byte_vec(&*x))
@@ -127,58 +127,29 @@ fn multi_string_bytes(s: &[String]) -> Vec<u8> {
 }
 
 #[inline(always)]
-fn string_to_utf16_byte_vec(s: &str) -> Vec<u8> {
-    // TODO: don't unwrap
-    U16CString::from_str(s)
-        .unwrap()
+fn string_to_utf16_byte_vec(s: &U16CString) -> Vec<u8> {
+    s.to_owned()
         .into_vec_with_nul()
         .into_iter()
         .flat_map(|x| x.to_le_bytes().to_vec())
         .collect()
 }
 
-fn parse_wide_string_nul(mut vec: U16AlignedU8Vec) -> Result<String, Error> {
-    if vec.len() % 2 != 0 {
-        return Err(Error::InvalidBufferSize(vec.len()));
-    }
-
-    // SAFETY: we check above that it is a multiple of 2, and that it is aligned where
-    // it is allocated.
-    #[allow(clippy::cast_ptr_alignment)]
-    let buf =
-        unsafe { std::slice::from_raw_parts_mut(vec.as_mut_ptr() as *mut u16, vec.len() / 2) };
-
-    let c_str = U16CStr::from_slice_with_nul(buf)?;
-    Ok(c_str.to_string()?)
+fn parse_wide_string_nul(vec: Vec<u16>) -> Result<U16CString, Error> {
+    Ok(U16CString::from_vec_with_nul(vec)?)
 }
 
-fn parse_wide_multi_string(mut vec: U16AlignedU8Vec) -> Result<Vec<String>, Error> {
-    if vec.len() % 2 != 0 {
-        return Err(Error::InvalidBufferSize(vec.len()));
-    }
-
-    // SAFETY: we check above that it is a multiple of 2, and that it is aligned where
-    // it is allocated.
-    #[allow(clippy::cast_ptr_alignment)]
-    let buf =
-        unsafe { std::slice::from_raw_parts_mut(vec.as_mut_ptr() as *mut u16, vec.len() / 2) };
-
-    let len = buf.len();
-
-    if len < 2 {
-        return Err(Error::InvalidBufferSize(len));
-    }
-
-    if buf[len - 1] != 0 || buf[len - 2] != 0 {
+fn parse_wide_multi_string(vec: Vec<u16>) -> Result<Vec<U16CString>, Error> {
+    let len = vec.len();
+    if vec[len - 1] != 0 || vec[len - 2] != 0 {
         return Err(Error::MissingMultiNul);
     }
 
-    (&buf[0..buf.len() - 1])
+    (&vec[0..vec.len() - 1])
         .split(|x| *x == 0)
-        .map(|x| U16Str::from_slice(x))
-        .map(U16Str::to_string)
+        .map(|x| U16CString::new(x))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(Error::InvalidUtf16)
+        .map_err(Error::InvalidNul)
 }
 
 #[inline]
@@ -286,17 +257,17 @@ pub(crate) fn parse_value_type_data(ty: u32, buf: U16AlignedU8Vec) -> Result<Dat
 
     match ty {
         Type::None => Ok(Data::None),
-        Type::String => parse_wide_string_nul(buf).map(Data::String),
-        Type::ExpandString => parse_wide_string_nul(buf).map(Data::ExpandString),
+        Type::String => parse_wide_string_nul(buf.into_u16_vec()).map(Data::String),
+        Type::ExpandString => parse_wide_string_nul(buf.into_u16_vec()).map(Data::ExpandString),
         Type::Binary => Ok(Data::Binary(buf.0)),
         Type::U32 => Ok(Data::U32(u32::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3],
         ]))),
         Type::U32BE => Ok(Data::U32BE(u32::from_be_bytes([
-            buf[3], buf[2], buf[1], buf[0],
+            buf[0], buf[1], buf[2], buf[3],
         ]))),
         Type::Link => Ok(Data::Link),
-        Type::MultiString => parse_wide_multi_string(buf).map(Data::MultiString),
+        Type::MultiString => parse_wide_multi_string(buf.into_u16_vec()).map(Data::MultiString),
         Type::ResourceList => Ok(Data::ResourceList),
         Type::FullResourceDescriptor => Ok(Data::FullResourceDescriptor),
         Type::ResourceRequirementsList => Ok(Data::ResourceRequirementsList),
