@@ -19,7 +19,7 @@ targets = [
 bitflags = "1.2.1"
 log = "0.4.8"
 thiserror = "1.0.20"
-widestring = "0.4.2"
+widestring = { git = "https://github.com/bbqsrc/widestring-rs" }
 
 [dependencies.winapi]
 version = "0.3.8"

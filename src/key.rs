@@ -1,4 +1,7 @@
-use std::ptr::null_mut;
+use std::{
+    convert::{Infallible, TryInto},
+    ptr::null_mut,
+};
 
 use widestring::{U16CStr, U16CString, U16String};
 use winapi::shared::minwindef::HKEY;
@@ -26,6 +29,12 @@ pub enum Error {
     Unknown(String, #[source] std::io::Error),
 }
 
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct RegKey(pub(crate) HKEY);
@@ -41,27 +50,30 @@ impl RegKey {
     #[inline]
     pub fn open<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         open_hkey(self.0, path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn create<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         create_hkey(self.0, path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn delete<P>(&self, path: P, is_recursive: bool) -> Result<(), Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         delete_hkey(self.0, path, is_recursive)
     }
 
@@ -119,9 +131,10 @@ impl RegKey {
 #[inline]
 pub(crate) fn open_hkey<P>(base: HKEY, path: P, sec: Security) -> Result<HKEY, Error>
 where
-    P: Into<U16CString>,
+    P: TryInto<U16CString>,
+    P::Error: Into<Error>,
 {
-    let path = path.into();
+    let path = path.try_into().map_err(Into::into)?;
     let mut hkey = std::ptr::null_mut();
     let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
 

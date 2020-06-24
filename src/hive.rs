@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::{convert::TryInto, fmt::Display};
 
-use widestring::{U16CString, U16String};
+use widestring::U16CString;
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,
@@ -38,27 +38,30 @@ impl Hive {
     #[inline]
     pub fn open<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         key::open_hkey(self.as_hkey(), path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn create<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         key::create_hkey(self.as_hkey(), path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn delete<P>(&self, path: P, is_recursive: bool) -> Result<(), Error>
     where
-        P: Into<U16String>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
     {
-        let path = U16CString::new(path.into())?;
+        let path = path.try_into().map_err(Into::into)?;
         key::delete_hkey(self.as_hkey(), path, is_recursive)
     }
 }
