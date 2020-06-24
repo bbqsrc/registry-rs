@@ -2,16 +2,17 @@
 #![deny(rust_2018_idioms)]
 
 mod hive;
-mod iter;
-mod key;
+pub mod iter;
+pub mod key;
 mod sec;
-mod value;
+pub mod value;
 
 pub use hive::Hive;
 pub use key::RegKey;
 pub use sec::Security;
-use std::ops::{Deref, DerefMut};
 pub use value::Data;
+
+use std::ops::{Deref, DerefMut};
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
