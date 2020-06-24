@@ -1,5 +1,6 @@
 use std::{
     convert::{TryFrom, TryInto},
+    fmt::Display,
     ptr::null_mut,
 };
 
@@ -77,6 +78,35 @@ pub enum Data {
     FullResourceDescriptor,
     ResourceRequirementsList,
     U64(u64),
+}
+
+impl Display for Data {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Data::None => f.write_str("<None>"),
+            Data::String(s) => f.write_str(&s.to_string_lossy()),
+            Data::ExpandString(s) => f.write_str(&s.to_string_lossy()),
+            Data::Binary(s) => write!(
+                f,
+                "<{}>",
+                s.iter()
+                    .map(|x| format!("{:02x}", x))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+            Data::U32(x) => write!(f, "0x{:016x}", x),
+            Data::U32BE(x) => write!(f, "0x{:016x}", x),
+            Data::Link => f.write_str("<Link>"),
+            Data::MultiString(x) => f
+                .debug_list()
+                .entries(x.iter().map(|x| x.to_string_lossy()))
+                .finish(),
+            Data::ResourceList => f.write_str("<Resource List>"),
+            Data::FullResourceDescriptor => f.write_str("<Full Resource Descriptor>"),
+            Data::ResourceRequirementsList => f.write_str("<Resource Requirements List>"),
+            Data::U64(x) => write!(f, "0x{:032x}", x),
+        }
+    }
 }
 
 impl Data {
