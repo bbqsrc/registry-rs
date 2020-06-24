@@ -4,10 +4,11 @@ use std::{
     ptr::null_mut,
 };
 
-use crate::U16AlignedU8Vec;
-use widestring::{U16CStr, U16CString, U16Str};
+use widestring::U16CString;
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegQueryValueExW, RegSetValueExW};
+
+use crate::U16AlignedU8Vec;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]

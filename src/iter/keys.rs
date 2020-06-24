@@ -1,4 +1,7 @@
-use std::{fmt::Debug, ptr::null_mut};
+use std::{
+    fmt::{Debug, Display},
+    ptr::null_mut,
+};
 
 use widestring::U16CString;
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
@@ -32,6 +35,12 @@ pub struct KeyRef<'a> {
     name: U16CString,
 }
 
+impl Display for KeyRef<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name.to_string_lossy())
+    }
+}
+
 impl<'a> Debug for KeyRef<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("KeyRef")
@@ -42,7 +51,7 @@ impl<'a> Debug for KeyRef<'a> {
 
 impl<'a> KeyRef<'a> {
     #[inline]
-    pub fn open<P>(&self, sec: Security) -> Result<RegKey, crate::key::Error> {
+    pub fn open(&self, sec: Security) -> Result<RegKey, crate::key::Error> {
         crate::key::open_hkey(self.regkey.handle, &self.name, sec).map(|handle| RegKey { handle })
     }
 }
