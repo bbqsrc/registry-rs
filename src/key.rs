@@ -3,7 +3,7 @@ use std::{
     ptr::null_mut,
 };
 
-use widestring::{U16CStr, U16CString, U16String};
+use widestring::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
@@ -80,7 +80,8 @@ impl RegKey {
     #[inline]
     pub fn value<S>(&self, value_name: S) -> Result<value::Data, value::Error>
     where
-        S: AsRef<U16CStr>,
+        S: TryInto<U16CString>,
+        S::Error: Into<value::Error>,
     {
         value::query_value(self.0, value_name)
     }
@@ -88,7 +89,8 @@ impl RegKey {
     #[inline]
     pub fn set_value<S>(&self, value_name: S, data: &value::Data) -> Result<(), value::Error>
     where
-        S: AsRef<U16CStr>,
+        S: TryInto<U16CString>,
+        S::Error: Into<value::Error>,
     {
         value::set_value(self.0, value_name, data)
     }

@@ -1,4 +1,7 @@
-use std::{convert::TryFrom, ptr::null_mut};
+use std::{
+    convert::{TryFrom, TryInto},
+    ptr::null_mut,
+};
 
 use crate::U16AlignedU8Vec;
 use widestring::{U16CStr, U16CString, U16Str};
@@ -22,6 +25,9 @@ pub enum Error {
 
     #[error("Invalid buffer size for UTF-16 string: {0}")]
     InvalidBufferSize(usize),
+
+    #[error("Invalid null found in string")]
+    InvalidNul(#[from] widestring::NulError<u16>),
 
     #[error("Missing null terminator in string")]
     MissingNul(#[from] widestring::MissingNulError<u16>),
@@ -176,12 +182,12 @@ fn parse_wide_multi_string(mut vec: U16AlignedU8Vec) -> Result<Vec<String>, Erro
 }
 
 #[inline]
-pub(crate) fn set_value<S: AsRef<U16CStr>>(
-    base: HKEY,
-    value_name: S,
-    data: &Data,
-) -> Result<(), Error> {
-    let value_name = value_name.as_ref();
+pub(crate) fn set_value<S>(base: HKEY, value_name: S, data: &Data) -> Result<(), Error>
+where
+    S: TryInto<U16CString>,
+    S::Error: Into<Error>,
+{
+    let value_name = value_name.try_into().map_err(Into::into)?;
     let raw_ty = data.as_type() as u32;
     let vec = data.to_bytes();
     let result = unsafe {
@@ -213,8 +219,12 @@ pub(crate) fn set_value<S: AsRef<U16CStr>>(
 }
 
 #[inline]
-pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Result<Data, Error> {
-    let value_name = value_name.as_ref();
+pub(crate) fn query_value<S>(base: HKEY, value_name: S) -> Result<Data, Error>
+where
+    S: TryInto<U16CString>,
+    S::Error: Into<Error>,
+{
+    let value_name = value_name.try_into().map_err(Into::into)?;
     let mut sz: u32 = 0;
 
     // Get the required buffer size first
