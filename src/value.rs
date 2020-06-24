@@ -1,5 +1,6 @@
-use std::ptr::null_mut;
+use std::{convert::TryFrom, ptr::null_mut};
 
+use crate::U16AlignedU8Vec;
 use widestring::{U16CStr, U16CString, U16Str};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegQueryValueExW, RegSetValueExW};
@@ -35,6 +36,7 @@ pub enum Error {
 }
 
 #[repr(u32)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) enum Type {
     None = 0,
     String = 1,
@@ -54,6 +56,7 @@ impl Type {
     const MAX: u32 = 11;
 }
 
+#[derive(Debug, Clone)]
 pub enum Data {
     None,
     String(String),
@@ -127,7 +130,7 @@ fn string_to_utf16_byte_vec(s: &str) -> Vec<u8> {
         .collect()
 }
 
-fn parse_wide_string_nul(mut vec: Vec<u8>) -> Result<String, Error> {
+fn parse_wide_string_nul(mut vec: U16AlignedU8Vec) -> Result<String, Error> {
     if vec.len() % 2 != 0 {
         return Err(Error::InvalidBufferSize(vec.len()));
     }
@@ -142,7 +145,7 @@ fn parse_wide_string_nul(mut vec: Vec<u8>) -> Result<String, Error> {
     Ok(c_str.to_string()?)
 }
 
-fn parse_wide_multi_string(mut vec: Vec<u8>) -> Result<Vec<String>, Error> {
+fn parse_wide_multi_string(mut vec: U16AlignedU8Vec) -> Result<Vec<String>, Error> {
     if vec.len() % 2 != 0 {
         return Err(Error::InvalidBufferSize(vec.len()));
     }
@@ -208,20 +211,6 @@ pub(crate) fn set_value<S: AsRef<U16CStr>>(
     Ok(())
 }
 
-#[inline(always)]
-fn u16_aligned_u8_vec(size: usize) -> Vec<u8> {
-    let remainder = size % 2;
-
-    let mut buf = vec![0u16; size / 2 + remainder];
-    let (ptr, len, capacity) = (buf.as_mut_ptr(), buf.len(), buf.capacity());
-    std::mem::forget(buf);
-
-    let mut buf = unsafe { Vec::from_raw_parts(ptr as *mut u8, len * 2, capacity * 2) };
-    buf.truncate(size);
-    debug_assert!(buf.len() == size);
-    buf
-}
-
 #[inline]
 pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Result<Data, Error> {
     let value_name = value_name.as_ref();
@@ -248,7 +237,7 @@ pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Resul
         ));
     }
 
-    let mut buf = u16_aligned_u8_vec(sz as usize);
+    let mut buf = U16AlignedU8Vec::new(sz as usize);
     let mut ty = 0u32;
 
     // Get the actual value
@@ -277,18 +266,18 @@ pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Resul
         };
     }
 
-    if ty > Type::MAX {
-        return Err(Error::UnhandledType(ty));
-    }
+    parse_value_type_data(ty, buf)
+}
 
-    // SAFETY: This is safe because we check if the value will fit just above and Type has repr(u32).
-    let ty: Type = unsafe { std::mem::transmute::<u32, Type>(ty) };
+#[inline(always)]
+pub(crate) fn parse_value_type_data(ty: u32, buf: U16AlignedU8Vec) -> Result<Data, Error> {
+    let ty = Type::try_from(ty).map_err(|_| Error::UnhandledType(ty))?;
 
     match ty {
         Type::None => Ok(Data::None),
         Type::String => parse_wide_string_nul(buf).map(Data::String),
         Type::ExpandString => parse_wide_string_nul(buf).map(Data::ExpandString),
-        Type::Binary => Ok(Data::Binary(buf)),
+        Type::Binary => Ok(Data::Binary(buf.0)),
         Type::U32 => Ok(Data::U32(u32::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3],
         ]))),
@@ -303,5 +292,21 @@ pub(crate) fn query_value<S: AsRef<U16CStr>>(base: HKEY, value_name: S) -> Resul
         Type::U64 => Ok(Data::U64(u64::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
         ]))),
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid or unknown type value: 0x{0:x}")]
+pub struct TryIntoTypeError(u32);
+
+impl TryFrom<u32> for Type {
+    type Error = TryIntoTypeError;
+    fn try_from(ty: u32) -> Result<Self, Self::Error> {
+        if ty > Type::MAX {
+            return Err(TryIntoTypeError(ty));
+        }
+
+        // SAFETY: This is safe because we check if the value will fit just above and Type has repr(u32).
+        Ok(unsafe { std::mem::transmute::<u32, Type>(ty) })
     }
 }

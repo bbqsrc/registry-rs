@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use widestring::U16CStr;
+use widestring::{U16CString, U16String};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,
@@ -38,16 +38,18 @@ impl Hive {
     #[inline]
     pub fn open<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: AsRef<U16CStr>,
+        P: Into<U16String>,
     {
+        let path = U16CString::new(path.into())?;
         key::open_hkey(self.as_hkey(), path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn create<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: AsRef<U16CStr>,
+        P: Into<U16String>,
     {
+        let path = U16CString::new(path.into())?;
         key::create_hkey(self.as_hkey(), path, sec).map(RegKey)
     }
 }

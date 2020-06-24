@@ -1,4 +1,4 @@
-use std::ptr::null_mut;
+use std::{fmt::Debug, ptr::null_mut};
 
 use widestring::U16CString;
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
@@ -14,8 +14,12 @@ pub enum Error {
 
     #[error("Missing null terminator in string")]
     MissingNul(#[from] widestring::MissingNulError<u16>),
+
+    #[error("Invalid null found in string")]
+    InvalidNul(#[from] widestring::NulError<u16>),
 }
 
+#[derive(Debug)]
 pub struct Keys<'a> {
     regkey: &'a RegKey,
     buf: Vec<u16>,
@@ -25,6 +29,14 @@ pub struct Keys<'a> {
 pub struct KeyRef<'a> {
     regkey: &'a RegKey,
     name: U16CString,
+}
+
+impl<'a> Debug for KeyRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("KeyRef")
+            .field(&self.name.to_string_lossy())
+            .finish()
+    }
 }
 
 impl<'a> KeyRef<'a> {
@@ -62,12 +74,13 @@ impl<'a> Iterator for Keys<'a> {
         self.index += 1;
 
         if result != 0 {
+            // TODO: don't panic
             panic!();
         }
 
-        let name = match U16CString::from_vec_with_nul(&self.buf[0..len as usize]) {
+        let name = match U16CString::new(&self.buf[0..len as usize]) {
             Ok(v) => v,
-            Err(e) => return Some(Err(Error::MissingNul(e))),
+            Err(e) => return Some(Err(Error::InvalidNul(e))),
         };
 
         Some(Ok(KeyRef {

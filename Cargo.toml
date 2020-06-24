@@ -1,5 +1,5 @@
 [package]
-name = "winreg2"
+name = "registry"
 description = "A safe wrapper for the Windows Registry API"
 version = "1.0.0-alpha.1"
 authors = ["Brendan Molloy <brendan@bbqsrc.net>"]

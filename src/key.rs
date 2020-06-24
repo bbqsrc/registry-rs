@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 
-use widestring::U16CStr;
+use widestring::{U16CStr, U16CString, U16String};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegCloseKey, RegCreateKeyExW, RegOpenCurrentUser, RegOpenKeyExW};
 
@@ -16,11 +16,15 @@ pub enum Error {
     #[error("Permission denied for given path: {0:?}")]
     PermissionDenied(String, #[source] std::io::Error),
 
+    #[error("Invalid null found in provided path")]
+    InvalidNul(#[from] widestring::NulError<u16>),
+
     #[error("An unknown IO error occurred for given path: {0:?}")]
     Unknown(String, #[source] std::io::Error),
 }
 
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct RegKey(pub(crate) HKEY);
 
 impl Drop for RegKey {
@@ -34,16 +38,18 @@ impl RegKey {
     #[inline]
     pub fn open<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: AsRef<U16CStr>,
+        P: Into<U16String>,
     {
+        let path = U16CString::new(path.into())?;
         open_hkey(self.0, path, sec).map(RegKey)
     }
 
     #[inline]
     pub fn create<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
-        P: AsRef<U16CStr>,
+        P: Into<U16String>,
     {
+        let path = U16CString::new(path.into())?;
         create_hkey(self.0, path, sec).map(RegKey)
     }
 
@@ -71,6 +77,14 @@ impl RegKey {
         }
     }
 
+    #[inline]
+    pub fn values(&self) -> iter::Values<'_> {
+        match iter::Values::new(self) {
+            Ok(v) => v,
+            Err(e) => panic!(e),
+        }
+    }
+
     pub fn open_current_user(sec: Security) -> Result<RegKey, Error> {
         let mut hkey = null_mut();
 
@@ -93,9 +107,9 @@ impl RegKey {
 #[inline]
 pub(crate) fn open_hkey<P>(base: HKEY, path: P, sec: Security) -> Result<HKEY, Error>
 where
-    P: AsRef<U16CStr>,
+    P: Into<U16CString>,
 {
-    let path = path.as_ref();
+    let path = path.into();
     let mut hkey = std::ptr::null_mut();
     let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
 
