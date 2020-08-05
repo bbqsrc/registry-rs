@@ -1,7 +1,7 @@
 [package]
 name = "registry"
 description = "A safe wrapper for the Windows Registry API"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 authors = ["Brendan Molloy <brendan@bbqsrc.net>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
