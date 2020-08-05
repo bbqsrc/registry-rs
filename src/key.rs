@@ -31,7 +31,7 @@ pub enum Error {
 
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
-        unreachable!()
+        unsafe { std::hint::unreachable_unchecked() }
     }
 }
 
@@ -77,6 +77,7 @@ impl RegKey {
         let path = path.try_into().map_err(Into::into)?;
         delete_hkey(self.handle, path, is_recursive)
     }
+
     #[inline]
     pub fn delete_self(self, is_recursive: bool) -> Result<(), Error> {
         delete_hkey(self.handle, U16CString::default(), is_recursive)
@@ -92,6 +93,15 @@ impl RegKey {
     }
 
     #[inline]
+    pub fn delete_value<S>(&self, value_name: S) -> Result<(), value::Error>
+    where
+        S: TryInto<U16CString>,
+        S::Error: Into<value::Error>,
+    {
+        value::delete_value(self.handle, value_name)
+    }
+
+    #[inline]
     pub fn set_value<S>(&self, value_name: S, data: &value::Data) -> Result<(), value::Error>
     where
         S: TryInto<U16CString>,
@@ -104,7 +114,7 @@ impl RegKey {
     pub fn keys(&self) -> iter::Keys<'_> {
         match iter::Keys::new(self) {
             Ok(v) => v,
-            Err(e) => panic!(e),
+            Err(e) => unreachable!(e),
         }
     }
 
@@ -112,7 +122,7 @@ impl RegKey {
     pub fn values(&self) -> iter::Values<'_> {
         match iter::Values::new(self) {
             Ok(v) => v,
-            Err(e) => panic!(e),
+            Err(e) => unreachable!(e),
         }
     }
 

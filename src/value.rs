@@ -1,12 +1,12 @@
 use std::{
-    convert::{TryFrom, TryInto},
+    convert::{Infallible, TryFrom, TryInto},
     fmt::Display,
     ptr::null_mut,
 };
 
 use widestring::U16CString;
 use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{RegQueryValueExW, RegSetValueExW};
+use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
 
 use crate::U16AlignedU8Vec;
 
@@ -42,6 +42,12 @@ pub enum Error {
 
     #[error("An unknown IO error occurred for given value name: '{0}'")]
     Unknown(String, #[source] std::io::Error),
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unsafe { std::hint::unreachable_unchecked() }
+    }
 }
 
 #[repr(u32)]
@@ -202,6 +208,32 @@ where
             vec.len() as u32,
         )
     };
+
+    if result != 0 {
+        let io_error = std::io::Error::from_raw_os_error(result);
+        let value_name = value_name
+            .to_string()
+            .unwrap_or_else(|_| "<unknown>".into());
+        return match io_error.kind() {
+            std::io::ErrorKind::NotFound => Err(Error::NotFound(value_name, io_error)),
+            std::io::ErrorKind::PermissionDenied => {
+                Err(Error::PermissionDenied(value_name, io_error))
+            }
+            _ => Err(Error::Unknown(value_name, io_error)),
+        };
+    }
+
+    Ok(())
+}
+
+#[inline]
+pub(crate) fn delete_value<S>(base: HKEY, value_name: S) -> Result<(), Error>
+where
+    S: TryInto<U16CString>,
+    S::Error: Into<Error>,
+{
+    let value_name = value_name.try_into().map_err(Into::into)?;
+    let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
 
     if result != 0 {
         let io_error = std::io::Error::from_raw_os_error(result);

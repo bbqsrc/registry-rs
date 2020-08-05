@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ptr::null_mut};
+use std::{convert::TryInto, fmt::Debug, ptr::null_mut};
 
 use widestring::{U16CStr, U16CString};
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
@@ -21,6 +21,9 @@ pub enum Error {
 
     #[error("Error parsing data")]
     Data(#[from] crate::value::Error),
+
+    #[error("An unknown IO error occurred for index: {0:?}")]
+    Unknown(u32, #[source] std::io::Error),
 }
 
 #[derive(Debug)]
@@ -47,12 +50,23 @@ impl<'a> Debug for ValueRef<'a> {
 }
 
 impl<'a> ValueRef<'a> {
-    pub fn set_name<S: AsRef<U16CStr>>(&mut self, name: S) {
-        todo!()
+    pub fn set_name<S>(&mut self, name: S) -> Result<(), Error>
+    where
+        S: TryInto<U16CString>,
+        S::Error: Into<Error>,
+    {
+        let mut name = name.try_into().map_err(Into::into)?;
+        std::mem::swap(&mut name, &mut self.name);
+
+        self.regkey.set_value(&self.name, &self.data)?;
+        self.regkey.delete_value(name)?;
+        Ok(())
     }
 
-    pub fn set_data(&mut self, data: Data) {
-        todo!()
+    pub fn set_data(&mut self, data: Data) -> Result<(), Error> {
+        self.data = data;
+        self.regkey.set_value(&self.name, &self.data)?;
+        Ok(())
     }
 
     pub fn name(&self) -> &U16CStr {
@@ -106,12 +120,14 @@ impl<'a> Iterator for Values<'a> {
             return None;
         }
 
-        self.index += 1;
-
         if result != 0 {
-            // TODO: don't panic
-            panic!();
+            return Some(Err(Error::Unknown(
+                self.index,
+                std::io::Error::from_raw_os_error(result),
+            )));
         }
+
+        self.index += 1;
 
         let name = match U16CString::new(&self.name_buf[0..name_len as usize]) {
             Ok(v) => v,
