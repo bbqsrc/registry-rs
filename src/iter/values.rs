@@ -1,11 +1,10 @@
 use std::{convert::TryInto, fmt::Debug, ptr::null_mut};
 
-use widestring::{U16CStr, U16CString};
+use utfx::{U16CStr, U16CString};
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
 use winapi::um::winreg::{RegEnumValueW, RegQueryInfoKeyW};
 
-use crate::key::RegKey;
-use crate::{Data, U16AlignedU8Vec};
+use crate::{key::RegKey, util::U16AlignedU8Vec, Data};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -14,10 +13,10 @@ pub enum Error {
     InvalidUtf16(#[from] std::string::FromUtf16Error),
 
     #[error("Missing null terminator in string")]
-    MissingNul(#[from] widestring::MissingNulError<u16>),
+    MissingNul(#[from] utfx::MissingNulError<u16>),
 
     #[error("Invalid null found in string")]
-    InvalidNul(#[from] widestring::NulError<u16>),
+    InvalidNul(#[from] utfx::NulError<u16>),
 
     #[error("Error parsing data")]
     Data(#[from] crate::value::Error),

@@ -3,7 +3,7 @@ use std::{
     ptr::null_mut,
 };
 
-use widestring::{U16CStr, U16CString};
+use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
@@ -23,7 +23,7 @@ pub enum Error {
     PermissionDenied(String, #[source] std::io::Error),
 
     #[error("Invalid null found in provided path")]
-    InvalidNul(#[from] widestring::NulError<u16>),
+    InvalidNul(#[from] utfx::NulError<u16>),
 
     #[error("An unknown IO error occurred for given path: {0:?}")]
     Unknown(String, #[source] std::io::Error),

@@ -1,6 +1,6 @@
 use std::{convert::TryInto, fmt::Display};
 
-use widestring::U16CString;
+use utfx::U16CString;
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,

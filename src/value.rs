@@ -4,11 +4,11 @@ use std::{
     ptr::null_mut,
 };
 
-use widestring::U16CString;
+use utfx::U16CString;
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
 
-use crate::U16AlignedU8Vec;
+use crate::util::U16AlignedU8Vec;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -29,10 +29,10 @@ pub enum Error {
     InvalidBufferSize(usize),
 
     #[error("Invalid null found in string")]
-    InvalidNul(#[from] widestring::NulError<u16>),
+    InvalidNul(#[from] utfx::NulError<u16>),
 
     #[error("Missing null terminator in string")]
-    MissingNul(#[from] widestring::MissingNulError<u16>),
+    MissingNul(#[from] utfx::MissingNulError<u16>),
 
     #[error("Missing null terminator in multi string")]
     MissingMultiNul,
@@ -184,7 +184,7 @@ fn parse_wide_multi_string(vec: Vec<u16>) -> Result<Vec<U16CString>, Error> {
 
     (&vec[0..vec.len() - 1])
         .split(|x| *x == 0)
-        .map(|x| U16CString::new(x))
+        .map(U16CString::new)
         .collect::<Result<Vec<_>, _>>()
         .map_err(Error::InvalidNul)
 }

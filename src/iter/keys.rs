@@ -3,7 +3,7 @@ use std::{
     ptr::null_mut,
 };
 
-use widestring::U16CString;
+use utfx::U16CString;
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
 use winapi::um::winreg::{RegEnumKeyExW, RegQueryInfoKeyW};
 
@@ -17,10 +17,10 @@ pub enum Error {
     InvalidUtf16(#[from] std::string::FromUtf16Error),
 
     #[error("Missing null terminator in string")]
-    MissingNul(#[from] widestring::MissingNulError<u16>),
+    MissingNul(#[from] utfx::MissingNulError<u16>),
 
     #[error("Invalid null found in string")]
-    InvalidNul(#[from] widestring::NulError<u16>),
+    InvalidNul(#[from] utfx::NulError<u16>),
 }
 
 #[derive(Debug)]
