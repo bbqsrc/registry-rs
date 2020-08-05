@@ -1,6 +1,7 @@
 #![allow(non_upper_case_globals)]
 
 bitflags::bitflags! {
+    /// A safe representation of ACL bitflags.
     pub struct Security: u32 {
         const QueryValue = 0x1;
         const SetValue = 0x2;

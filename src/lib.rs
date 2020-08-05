@@ -4,6 +4,26 @@
 //! # Registry
 //!
 //! A convenient crate for safely accessing and mutating the Windows Registry.
+//!
+//! ## Usage
+//!
+//! In general, you will want to access a key from a [`Hive`](enum.Hive.html). This crate automatically handles
+//! the conversion of `String` and `str` into a UTF-16 string suitable for FFI usage.
+//!
+//! ```ignore
+//! let regkey = Hive::CurrentUser::open(r"some\nested\path", Security::Read)?;
+//! ```
+//!
+//! A [`RegKey`](struct.RegKey.html) has all necessary functionality for querying subkeys, values within a key,
+//! and accessing key value data.
+//!
+//! ```ignore
+//! regkey.set_value("SomeValue", Data::U32(42))?;
+//! assert_eq!(regkey.value("SomeValue")?, Data::U32(42));
+//! ```
+//!
+//! [`RegKey`](struct.RegKey.html)s also support iteration of all subkeys with the `keys()` function, and all values with the `values()` function.
+//!
 
 mod hive;
 pub mod iter;
@@ -13,8 +33,10 @@ mod util;
 pub mod value;
 
 pub use hive::Hive;
+#[doc(inline)]
 pub use key::RegKey;
 pub use sec::Security;
+#[doc(inline)]
 pub use value::Data;
 
 #[cfg(test)]

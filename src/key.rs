@@ -35,6 +35,7 @@ impl From<Infallible> for Error {
     }
 }
 
+/// The safe representation of a Windows registry key.
 #[derive(Debug)]
 pub struct RegKey {
     pub(crate) handle: HKEY,

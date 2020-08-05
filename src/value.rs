@@ -71,6 +71,7 @@ impl Type {
     const MAX: u32 = 11;
 }
 
+/// A type-safe wrapper around Windows Registry value data.
 #[derive(Debug, Clone)]
 pub enum Data {
     None,

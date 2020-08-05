@@ -10,6 +10,7 @@ use winapi::um::winreg::{
 use crate::key::{self, Error};
 use crate::{sec::Security, RegKey};
 
+/// All hives of the Windows Registry. Start here to get to a registry key.
 #[derive(Debug, Copy, Clone)]
 pub enum Hive {
     ClassesRoot,
