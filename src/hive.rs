@@ -43,7 +43,7 @@ impl Hive {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        key::open_hkey(self.as_hkey(), path, sec).map(|handle| RegKey { handle })
+        key::open_hkey(self.as_hkey(), &path, sec).map(|handle| RegKey { handle, path })
     }
 
     #[inline]
@@ -53,7 +53,7 @@ impl Hive {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        key::create_hkey(self.as_hkey(), path, sec).map(|handle| RegKey { handle })
+        key::create_hkey(self.as_hkey(), &path, sec).map(|handle| RegKey { handle, path })
     }
 
     #[inline]

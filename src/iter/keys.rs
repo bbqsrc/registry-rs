@@ -3,7 +3,7 @@ use std::{
     ptr::null_mut,
 };
 
-use utfx::U16CString;
+use utfx::{U16CString, U16String};
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
 use winapi::um::winreg::{RegEnumKeyExW, RegQueryInfoKeyW};
 
@@ -52,7 +52,20 @@ impl<'a> Debug for KeyRef<'a> {
 impl<'a> KeyRef<'a> {
     #[inline]
     pub fn open(&self, sec: Security) -> Result<RegKey, crate::key::Error> {
-        crate::key::open_hkey(self.regkey.handle, &self.name, sec).map(|handle| RegKey { handle })
+        let path = self.regkey.path.to_ustring();
+        let suffix = self.name.to_ustring();
+        let bs = U16String::from_str("\\");
+        let chars = path
+            .as_slice()
+            .iter()
+            .chain(bs.as_slice())
+            .chain(suffix.as_slice())
+            .copied()
+            .collect::<Vec<u16>>();
+
+        let path = U16CString::new(chars)?;
+        crate::key::open_hkey(self.regkey.handle, &self.name, sec)
+            .map(|handle| RegKey { handle, path })
     }
 }
 

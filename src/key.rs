@@ -1,6 +1,6 @@
 use std::{
     convert::{Infallible, TryInto},
-    ptr::null_mut,
+    ptr::null_mut, fmt::Display,
 };
 
 use utfx::{U16CStr, U16CString};
@@ -39,6 +39,13 @@ impl From<Infallible> for Error {
 #[derive(Debug)]
 pub struct RegKey {
     pub(crate) handle: HKEY,
+    pub(crate) path: U16CString,
+}
+
+impl Display for RegKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.path.to_string_lossy())
+    }
 }
 
 impl Drop for RegKey {
@@ -56,7 +63,7 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        open_hkey(self.handle, path, sec).map(|handle| RegKey { handle })
+        open_hkey(self.handle, &path, sec).map(|handle| RegKey { handle, path })
     }
 
     #[inline]
@@ -66,7 +73,7 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        create_hkey(self.handle, path, sec).map(|handle| RegKey { handle })
+        create_hkey(self.handle, &path, sec).map(|handle| RegKey { handle, path })
     }
 
     #[inline]
@@ -133,7 +140,11 @@ impl RegKey {
         let result = unsafe { RegOpenCurrentUser(sec.bits(), &mut hkey) };
 
         if result == 0 {
-            return Ok(RegKey { handle: hkey });
+            // TODO: use NT API to query path
+            return Ok(RegKey {
+                handle: hkey,
+                path: "<Current User>".try_into().unwrap(),
+            });
         }
 
         let io_error = std::io::Error::from_raw_os_error(result);
@@ -147,12 +158,11 @@ impl RegKey {
 }
 
 #[inline]
-pub(crate) fn open_hkey<P>(base: HKEY, path: P, sec: Security) -> Result<HKEY, Error>
+pub(crate) fn open_hkey<'a, P>(base: HKEY, path: P, sec: Security) -> Result<HKEY, Error>
 where
-    P: TryInto<U16CString>,
-    P::Error: Into<Error>,
+    P: AsRef<U16CStr>,
 {
-    let path = path.try_into().map_err(Into::into)?;
+    let path = path.as_ref();
     let mut hkey = std::ptr::null_mut();
     let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
 

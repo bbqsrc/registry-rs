@@ -49,7 +49,7 @@ mod tests {
         let result = Hive::LocalMachine
             .open(r"SOFTWARE\Microsoft", Security::AllAccess)
             .unwrap();
-        println!("{:#?}", result);
+        println!("{}", result);
     }
 
     #[test]
