@@ -342,7 +342,7 @@ pub(crate) fn parse_value_type_data(ty: u32, buf: U16AlignedU8Vec) -> Result<Dat
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("Invalid or unknown type value: 0x{0:x}")]
+#[error("Invalid or unknown type value: {0:#x}")]
 pub struct TryIntoTypeError(u32);
 
 impl TryFrom<u32> for Type {
@@ -352,7 +352,8 @@ impl TryFrom<u32> for Type {
             return Err(TryIntoTypeError(ty));
         }
 
-        // SAFETY: This is safe because we check if the value will fit just above and Type has repr(u32).
+        // SAFETY: This is safe because we check if the value will fit just
+        // above and Type has repr(u32).
         Ok(unsafe { std::mem::transmute::<u32, Type>(ty) })
     }
 }

@@ -64,8 +64,11 @@ impl<'a> KeyRef<'a> {
             .collect::<Vec<u16>>();
 
         let path = U16CString::new(chars)?;
-        crate::key::open_hkey(self.regkey.handle, &self.name, sec)
-            .map(|handle| RegKey { handle, path })
+        crate::key::open_hkey(self.regkey.handle, &self.name, sec).map(|handle| RegKey {
+            hive: self.regkey.hive,
+            handle,
+            path,
+        })
     }
 }
 

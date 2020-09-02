@@ -1,17 +1,19 @@
 use std::{
     convert::{Infallible, TryInto},
-    ptr::null_mut, fmt::Display,
+    fmt::Display,
+    ptr::null_mut,
 };
 
 use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW, RegSaveKeyExW,
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
+    RegSaveKeyExW,
 };
 
 use crate::iter;
 use crate::sec::Security;
-use crate::value;
+use crate::{value, Hive};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -38,13 +40,22 @@ impl From<Infallible> for Error {
 /// The safe representation of a Windows registry key.
 #[derive(Debug)]
 pub struct RegKey {
+    pub(crate) hive: Hive,
     pub(crate) handle: HKEY,
     pub(crate) path: U16CString,
 }
 
 impl Display for RegKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.path.to_string_lossy())
+        write!(f, "{}", &self.hive)?;
+        let path = self.path.to_string_lossy();
+
+        if path != "" {
+            f.write_str(r"\")?;
+            f.write_str(&path)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -63,9 +74,13 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        open_hkey(self.handle, &path, sec).map(|handle| RegKey { handle, path })
+        open_hkey(self.handle, &path, sec).map(|handle| RegKey {
+            hive: self.hive,
+            handle,
+            path,
+        })
     }
-    
+
     #[inline]
     pub fn write<P>(&self, file_path: P) -> Result<(), Error>
     where
@@ -83,7 +98,11 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        create_hkey(self.handle, &path, sec).map(|handle| RegKey { handle, path })
+        create_hkey(self.handle, &path, sec).map(|handle| RegKey {
+            hive: self.hive,
+            handle,
+            path,
+        })
     }
 
     #[inline]
@@ -152,8 +171,9 @@ impl RegKey {
         if result == 0 {
             // TODO: use NT API to query path
             return Ok(RegKey {
+                hive: Hive::CurrentUser,
                 handle: hkey,
-                path: "<Current User>".try_into().unwrap(),
+                path: "".try_into().unwrap(),
             });
         }
 
@@ -267,5 +287,18 @@ where
         std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
         std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
         _ => Err(Error::Unknown(path, io_error)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Hive;
+
+    #[test]
+    fn test_paths() {
+        let key = Hive::CurrentUser
+            .open("SOFTWARE\\Microsoft", crate::Security::Read)
+            .unwrap();
+        assert_eq!(key.to_string(), "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft")
     }
 }
