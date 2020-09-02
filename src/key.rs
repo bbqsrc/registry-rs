@@ -6,7 +6,7 @@ use std::{
 use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW, RegSaveKeyExW,
 };
 
 use crate::iter;
@@ -64,6 +64,16 @@ impl RegKey {
     {
         let path = path.try_into().map_err(Into::into)?;
         open_hkey(self.handle, &path, sec).map(|handle| RegKey { handle, path })
+    }
+    
+    #[inline]
+    pub fn write<P>(&self, file_path: P) -> Result<(), Error>
+    where
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
+    {
+        let path = file_path.try_into().map_err(Into::into)?;
+        save_hkey(self.handle, &path)
     }
 
     #[inline]
@@ -168,6 +178,27 @@ where
 
     if result == 0 {
         return Ok(hkey);
+    }
+
+    let io_error = std::io::Error::from_raw_os_error(result);
+    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
+    match io_error.kind() {
+        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
+        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
+        _ => Err(Error::Unknown(path, io_error)),
+    }
+}
+
+#[inline]
+pub(crate) fn save_hkey<'a, P>(hkey: HKEY, path: P) -> Result<(), Error>
+where
+    P: AsRef<U16CStr>,
+{
+    let path = path.as_ref();
+    let result = unsafe { RegSaveKeyExW(hkey, path.as_ptr(), std::ptr::null_mut(), 4) };
+
+    if result == 0 {
+        return Ok(());
     }
 
     let io_error = std::io::Error::from_raw_os_error(result);

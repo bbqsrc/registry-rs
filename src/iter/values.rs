@@ -58,7 +58,9 @@ impl<'a> ValueRef<'a> {
         std::mem::swap(&mut name, &mut self.name);
 
         self.regkey.set_value(&self.name, &self.data)?;
-        self.regkey.delete_value(name)?;
+        if self.name != name {
+            self.regkey.delete_value(name)?;
+        }
         Ok(())
     }
 

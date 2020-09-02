@@ -47,6 +47,16 @@ impl Hive {
     }
 
     #[inline]
+    pub fn write<P>(&self, file_path: P) -> Result<(), Error>
+    where
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>,
+    {
+        let path = file_path.try_into().map_err(Into::into)?;
+        key::save_hkey(self.as_hkey(), &path)
+    }
+
+    #[inline]
     pub fn create<P>(&self, path: P, sec: Security) -> Result<RegKey, Error>
     where
         P: TryInto<U16CString>,
