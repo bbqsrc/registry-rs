@@ -1,4 +1,4 @@
-use registry::Hive;
+use registry::{Hive, Security};
 use winapi::{shared::ntdef::LUID, um::{processthreadsapi::OpenProcessToken, securitybaseapi::AdjustTokenPrivileges, winbase::LookupPrivilegeValueW, winnt::LUID_AND_ATTRIBUTES, winnt::{HANDLE, SE_BACKUP_NAME, SE_PRIVILEGE_ENABLED, SE_RESTORE_NAME, TOKEN_PRIVILEGES}}};
 use winapi::um::processthreadsapi::GetCurrentProcess;
 use winapi::um::winnt::TOKEN_ADJUST_PRIVILEGES;
@@ -13,7 +13,14 @@ fn main() -> Result<(), std::io::Error> {
 
     set_privilege(token, SE_RESTORE_NAME)?;
     set_privilege(token, SE_BACKUP_NAME)?;
-    Hive::LocalMachine.load("example", r"C:\Users\Default\NTUSER.DAT").unwrap();
+    let hive_key = Hive::LocalMachine.load("example", r"C:\Users\Default\NTUSER.DAT", Security::Read | Security::Write).unwrap();
+
+    let keys: Vec<_> = hive_key
+        .keys()
+        .map(|k| k.unwrap().to_string())
+        .collect();
+    
+    println!("{:?}", keys);
     Ok(())
 }
 
