@@ -8,7 +8,7 @@ use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
-    RegSaveKeyExW,
+    RegSaveKeyExW, RegLoadKeyW, RegUnLoadKeyW,
 };
 
 use crate::iter;
@@ -184,6 +184,52 @@ impl RegKey {
             std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
             _ => Err(Error::Unknown(path, io_error)),
         }
+    }
+}
+
+#[inline]
+pub(crate) fn load_hkey<N, P>(base: HKEY, name: N, path: P) -> Result<(), Error>
+where
+    N: AsRef<U16CStr>,
+    P: AsRef<U16CStr>,
+{
+    let name = name.as_ref();
+    let path = path.as_ref();
+
+    let result = unsafe { RegLoadKeyW(base, name.as_ptr(), path.as_ptr()) };
+
+    if result == 0 {
+        return Ok(());
+    }
+
+    let io_error = std::io::Error::from_raw_os_error(result);
+    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
+    match io_error.kind() {
+        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
+        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
+        _ => Err(Error::Unknown(path, io_error)),
+    }
+}
+
+#[inline]
+pub(crate) fn unload_hkey<P>(base: HKEY, path: P) -> Result<(), Error>
+where
+    P: AsRef<U16CStr>,
+{
+    let path = path.as_ref();
+
+    let result = unsafe { RegUnLoadKeyW(base, path.as_ptr()) };
+
+    if result == 0 {
+        return Ok(());
+    }
+
+    let io_error = std::io::Error::from_raw_os_error(result);
+    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
+    match io_error.kind() {
+        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
+        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
+        _ => Err(Error::Unknown(path, io_error)),
     }
 }
 

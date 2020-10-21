@@ -51,6 +51,31 @@ impl Hive {
     }
 
     #[inline]
+    pub fn load<N, P>(&self, name: N, path: P) -> Result<(), Error>
+    where
+        N: TryInto<U16CString>,
+        N::Error: Into<Error>,
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>, 
+    {
+        let name = name.try_into().map_err(Into::into)?;
+        let path = path.try_into().map_err(Into::into)?;
+
+        key::load_hkey(self.as_hkey(), name, path)
+    }
+
+    #[inline]
+    pub fn unload<N, P>(&self, path: P) -> Result<(), Error>
+    where
+        P: TryInto<U16CString>,
+        P::Error: Into<Error>, 
+    {
+        let path = path.try_into().map_err(Into::into)?;
+
+        key::unload_hkey(self.as_hkey(), path)
+    }
+
+    #[inline]
     pub fn write<P>(&self, file_path: P) -> Result<(), Error>
     where
         P: TryInto<U16CString>,
