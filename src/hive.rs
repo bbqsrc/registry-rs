@@ -7,7 +7,7 @@ use winapi::um::winreg::{
     HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_USERS,
 };
 
-use crate::key::{self, Error};
+use crate::key::{self, Error, PrivateHiveKey};
 use crate::{sec::Security, RegKey};
 
 /// All hives of the Windows Registry. Start here to get to a registry key.
@@ -51,7 +51,7 @@ impl Hive {
     }
 
     #[inline]
-    pub fn load<N, P>(&self, name: N, path: P) -> Result<(), Error>
+    pub fn load<N, P>(&self, name: N, path: P, sec: Security) -> Result<PrivateHiveKey, Error>
     where
         N: TryInto<U16CString>,
         N::Error: Into<Error>,
@@ -61,17 +61,23 @@ impl Hive {
         let name = name.try_into().map_err(Into::into)?;
         let path = path.try_into().map_err(Into::into)?;
 
-        key::load_hkey(self.as_hkey(), name, path)
+        key::load_hkey(self.as_hkey(), &name, path)?;
+        let key= self.open(&name, sec)?;
+
+        Ok(PrivateHiveKey {
+            base: *self,
+            key: Some(key)
+        })
     }
 
     #[inline]
-    pub fn unload<N, P>(&self, path: P) -> Result<(), Error>
+    pub(crate) fn unload<P>(&self, path: P) -> Result<(), Error>
     where
         P: TryInto<U16CString>,
         P::Error: Into<Error>, 
     {
         let path = path.try_into().map_err(Into::into)?;
-
+        println!("{:?}, {:?}", self, path);
         key::unload_hkey(self.as_hkey(), path)
     }
 

@@ -1,8 +1,4 @@
-use std::{
-    convert::{Infallible, TryInto},
-    fmt::Display,
-    ptr::null_mut,
-};
+use std::{ops::Deref, convert::{Infallible, TryInto}, fmt::Display, ptr::null_mut};
 
 use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
@@ -184,6 +180,29 @@ impl RegKey {
             std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
             _ => Err(Error::Unknown(path, io_error)),
         }
+    }
+}
+
+pub struct PrivateHiveKey {
+    pub(crate) base: Hive,
+    pub(crate) key: Option<RegKey>,
+}
+
+impl Deref for PrivateHiveKey {
+    type Target = RegKey;
+
+    fn deref(&self) -> &Self::Target {
+        self.key.as_ref().unwrap()
+    }
+}
+
+impl Drop for PrivateHiveKey {
+    fn drop(&mut self) {
+        let key = std::mem::take(&mut self.key).unwrap();
+        let path = key.path.clone();
+        std::mem::drop(key);
+        println!("dropped key");
+        self.base.unload(&path).unwrap();
     }
 }
 
