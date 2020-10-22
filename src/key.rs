@@ -201,7 +201,6 @@ impl Drop for PrivateHiveKey {
         let key = std::mem::take(&mut self.key).unwrap();
         let path = key.path.clone();
         std::mem::drop(key);
-        println!("dropped key");
         self.base.unload(&path).unwrap();
     }
 }
