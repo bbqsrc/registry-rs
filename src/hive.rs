@@ -77,7 +77,6 @@ impl Hive {
         P::Error: Into<Error>, 
     {
         let path = path.try_into().map_err(Into::into)?;
-        println!("{:?}, {:?}", self, path);
         key::unload_hkey(self.as_hkey(), path)
     }
 
