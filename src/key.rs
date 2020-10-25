@@ -1,10 +1,14 @@
-use std::{ops::Deref, convert::{Infallible, TryInto}, fmt::Display, ptr::null_mut};
+use std::{
+    convert::{Infallible, TryInto},
+    fmt::Display,
+    ptr::null_mut,
+};
 
 use utfx::{U16CStr, U16CString};
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{
     RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
-    RegSaveKeyExW, RegLoadKeyW, RegUnLoadKeyW, RegLoadAppKeyW,
+    RegSaveKeyExW,
 };
 
 use crate::iter;
@@ -180,109 +184,6 @@ impl RegKey {
             std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
             _ => Err(Error::Unknown(path, io_error)),
         }
-    }
-
-    pub fn load_appkey<P>(path: P, sec: Security) -> Result<RegKey, Error>
-    where 
-        P: TryInto<U16CString>,
-        P::Error: Into<Error>,
-    {
-        let path = path.try_into().map_err(Into::into)?;
-        load_appkey(&path, sec).map(|handle| RegKey {
-            hive: Hive::CurrentUser,
-            handle,
-            path: "".try_into().unwrap(),
-        })
-    }
-}
-
-pub struct PrivateHiveKey {
-    pub(crate) base: Hive,
-    pub(crate) key: Option<RegKey>,
-}
-
-impl Deref for PrivateHiveKey {
-    type Target = RegKey;
-
-    fn deref(&self) -> &Self::Target {
-        self.key.as_ref().unwrap()
-    }
-}
-
-impl Drop for PrivateHiveKey {
-    fn drop(&mut self) {
-        let key = std::mem::take(&mut self.key).unwrap();
-        let path = key.path.clone();
-        std::mem::drop(key);
-        self.base.unload(&path).unwrap();
-    }
-}
-
-#[inline]
-pub(crate) fn load_appkey<P>(path: P, sec: Security) -> Result<HKEY, Error>
-where
-    P: AsRef<U16CStr>,
-{
-    let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegLoadAppKeyW(path.as_ptr(), &mut hkey, sec.bits(), 0, 0) };
-
-    if result == 0 {
-        return Ok(hkey);
-    }
-
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
-}
-
-#[inline]
-pub(crate) fn load_hkey<N, P>(base: HKEY, name: N, path: P) -> Result<(), Error>
-where
-    N: AsRef<U16CStr>,
-    P: AsRef<U16CStr>,
-{
-    let name = name.as_ref();
-    let path = path.as_ref();
-
-    let result = unsafe { RegLoadKeyW(base, name.as_ptr(), path.as_ptr()) };
-
-    if result == 0 {
-        return Ok(());
-    }
-
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
-}
-
-#[inline]
-pub(crate) fn unload_hkey<P>(base: HKEY, path: P) -> Result<(), Error>
-where
-    P: AsRef<U16CStr>,
-{
-    let path = path.as_ref();
-
-    let result = unsafe { RegUnLoadKeyW(base, path.as_ptr()) };
-
-    if result == 0 {
-        return Ok(());
-    }
-
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
     }
 }
 
