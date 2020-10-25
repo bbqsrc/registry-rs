@@ -6,6 +6,8 @@ authors = ["Brendan Molloy <brendan@bbqsrc.net>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bbqsrc/registry-rs"
+categories = ["api-bindings", "os", "os::windows-apis"]
+keywords = ["windows", "registry", "win32", "winapi", "winreg"]
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
