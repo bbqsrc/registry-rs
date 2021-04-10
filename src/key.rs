@@ -5,7 +5,9 @@ use std::{
 };
 
 use utfx::{U16CStr, U16CString};
-use winapi::shared::minwindef::HKEY;
+use winapi::shared::minwindef::{HKEY, TRUE};
+use winapi::um::handleapi::DuplicateHandle;
+use winapi::um::processthreadsapi::{GetCurrentProcess, DUPLICATE_SAME_ACCESS};
 use winapi::um::winreg::{
     RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
     RegSaveKeyExW,
@@ -185,6 +187,47 @@ impl RegKey {
             _ => Err(Error::Unknown(path, io_error)),
         }
     }
+
+    #[inline]
+    pub fn try_clone(&self) -> Result<RegKey, Error> {
+        let path = self.path.clone();
+
+        let handle = ptr::null_mut();
+        let result = unsafe {
+            let process = GetCurrentProcess();
+
+            // NOTE: DuplicateHandle can be used on registry keys so long as
+            // they aren't from a remote computer, i.e they weren't created with
+            // RegConnectRegistry. This library doesn't support remote
+            // registries.
+            // See <https://docs.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle>
+
+            DuplicateHandle(
+                process,               // source process
+                self.handle,           // source handle
+                process,               // target process
+                &mut handle,           // target handle
+                0,                     // access, ignored as same access requested
+                TRUE,                  // inheritable
+                DUPLICATE_SAME_ACCESS, // options
+            )
+        };
+
+        if result != 0 {
+            let io_error = std::io::Error::from_raw_os_error(result);
+            return match io_error.kind() {
+                std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
+                std::io::ErrorKind::PermissionDenied => {
+                    Err(Error::PermissionDenied(path, io_error))
+                }
+                _ => Err(Error::Unknown(path, io_error)),
+            };
+        }
+
+        let handle = unsafe { *handle };
+
+        Ok(Self { path, handle, hive })
+    }
 }
 
 #[inline]
@@ -300,5 +343,18 @@ mod tests {
             .open("SOFTWARE\\Microsoft", crate::Security::Read)
             .unwrap();
         assert_eq!(key.to_string(), "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft")
+    }
+
+    #[test]
+    fn can_clone() {
+        let key = Hive::CurrentUser
+            .open("SOFTWARE\\Microsoft", crate::Security::Read)
+            .unwrap();
+
+        let key2 = key.try_clone().unwrap();
+        let key3 = key.try_clone().unwrap();
+
+        key2.try_clone().unwrap();
+        key3.try_clone().unwrap();
     }
 }
