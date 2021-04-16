@@ -1,6 +1,7 @@
 use std::{
     convert::{Infallible, TryInto},
     fmt::Display,
+    io,
     ptr::null_mut,
 };
 
@@ -19,16 +20,36 @@ use crate::{value, Hive};
 #[non_exhaustive]
 pub enum Error {
     #[error("Provided path not found: {0:?}")]
-    NotFound(String, #[source] std::io::Error),
+    NotFound(String, #[source] io::Error),
 
     #[error("Permission denied for given path: {0:?}")]
-    PermissionDenied(String, #[source] std::io::Error),
+    PermissionDenied(String, #[source] io::Error),
 
     #[error("Invalid null found in provided path")]
     InvalidNul(#[from] utfx::NulError<u16>),
 
     #[error("An unknown IO error occurred for given path: {0:?}")]
-    Unknown(String, #[source] std::io::Error),
+    Unknown(String, #[source] io::Error),
+}
+
+impl Error {
+    #[cfg(test)]
+    pub(crate) fn is_not_found(&self) -> bool {
+        match self {
+            Error::NotFound(_, _) => true,
+            _ => false,
+        }
+    }
+
+    fn from_code(code: i32, value_name: String) -> Self {
+        let err = io::Error::from_raw_os_error(code);
+
+        return match err.kind() {
+            io::ErrorKind::NotFound => Error::NotFound(value_name, err),
+            io::ErrorKind::PermissionDenied => Error::PermissionDenied(value_name, err),
+            _ => Error::Unknown(value_name, err),
+        };
+    }
 }
 
 impl From<Infallible> for Error {
@@ -177,13 +198,8 @@ impl RegKey {
             });
         }
 
-        let io_error = std::io::Error::from_raw_os_error(result);
         let path = "<current user>".to_string();
-        match io_error.kind() {
-            std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-            std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-            _ => Err(Error::Unknown(path, io_error)),
-        }
+        Err(Error::from_code(result, path))
     }
 }
 
@@ -200,13 +216,8 @@ where
         return Ok(hkey);
     }
 
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
+    let path = path.to_string_lossy();
+    Err(Error::from_code(result, path))
 }
 
 #[inline]
@@ -221,13 +232,8 @@ where
         return Ok(());
     }
 
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
+    let path = path.to_string_lossy();
+    Err(Error::from_code(result, path))
 }
 
 #[inline]
@@ -247,13 +253,8 @@ where
         return Ok(());
     }
 
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
+    let path = path.to_string_lossy();
+    Err(Error::from_code(result, path))
 }
 
 #[inline]
@@ -281,13 +282,8 @@ where
         return Ok(hkey);
     }
 
-    let io_error = std::io::Error::from_raw_os_error(result);
-    let path = path.to_string().unwrap_or_else(|_| "<unknown>".into());
-    match io_error.kind() {
-        std::io::ErrorKind::NotFound => Err(Error::NotFound(path, io_error)),
-        std::io::ErrorKind::PermissionDenied => Err(Error::PermissionDenied(path, io_error)),
-        _ => Err(Error::Unknown(path, io_error)),
-    }
+    let path = path.to_string_lossy();
+    Err(Error::from_code(result, path))
 }
 
 #[cfg(test)]
@@ -300,5 +296,29 @@ mod tests {
             .open("SOFTWARE\\Microsoft", crate::Security::Read)
             .unwrap();
         assert_eq!(key.to_string(), "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft")
+    }
+
+    #[test]
+    fn non_existent_path() {
+        let key_err = Hive::CurrentUser
+            .open(
+                r"2f773499-0946-4f83-9cad-4c8ebbaf9f73\050b26e8-ccac-4d2a-8d94-c597fc7ebf07",
+                crate::Security::Read,
+            )
+            .unwrap_err();
+
+        assert!(key_err.is_not_found());
+    }
+
+    #[test]
+    fn non_existent_value() {
+        let key = Hive::CurrentUser
+            .open("SOFTWARE\\Microsoft", crate::Security::Read)
+            .unwrap();
+        let value_err = key
+            .value("4e996ef6-a4ef-4026-b9fc-464d352d35ee")
+            .unwrap_err();
+
+        assert!(value_err.is_not_found());
     }
 }

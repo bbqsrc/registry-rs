@@ -1,6 +1,7 @@
 use std::{
     convert::{Infallible, TryFrom, TryInto},
     fmt::Display,
+    io,
     ptr::null_mut,
 };
 
@@ -13,20 +14,14 @@ use crate::util::U16AlignedU8Vec;
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("Error determining required buffer size for value '{0}'")]
-    BufferSize(String, #[source] std::io::Error),
-
     #[error("Data not found for value with name '{0}'")]
-    NotFound(String, #[source] std::io::Error),
+    NotFound(String, #[source] io::Error),
 
     #[error("Permission denied for given value name: '{0}'")]
-    PermissionDenied(String, #[source] std::io::Error),
+    PermissionDenied(String, #[source] io::Error),
 
     #[error("Unhandled type: 0x{0:x}")]
     UnhandledType(u32),
-
-    #[error("Invalid buffer size for UTF-16 string: {0}")]
-    InvalidBufferSize(usize),
 
     #[error("Invalid null found in string")]
     InvalidNul(#[from] utfx::NulError<u16>),
@@ -41,7 +36,35 @@ pub enum Error {
     InvalidUtf16(#[from] std::string::FromUtf16Error),
 
     #[error("An unknown IO error occurred for given value name: '{0}'")]
-    Unknown(String, #[source] std::io::Error),
+    Unknown(String, #[source] io::Error),
+
+    #[deprecated(note = "not used")]
+    #[error("Error determining required buffer size for value '{0}'")]
+    BufferSize(String, #[source] io::Error),
+
+    #[deprecated(note = "not used")]
+    #[error("Invalid buffer size for UTF-16 string: {0}")]
+    InvalidBufferSize(usize),
+}
+
+impl Error {
+    #[cfg(test)]
+    pub(crate) fn is_not_found(&self) -> bool {
+        match self {
+            Error::NotFound(_, _) => true,
+            _ => false,
+        }
+    }
+
+    fn from_code(code: i32, value_name: String) -> Self {
+        let err = std::io::Error::from_raw_os_error(code);
+
+        return match err.kind() {
+            io::ErrorKind::NotFound => Error::NotFound(value_name, err),
+            io::ErrorKind::PermissionDenied => Error::PermissionDenied(value_name, err),
+            _ => Error::Unknown(value_name, err),
+        };
+    }
 }
 
 impl From<Infallible> for Error {
@@ -211,17 +234,7 @@ where
     };
 
     if result != 0 {
-        let io_error = std::io::Error::from_raw_os_error(result);
-        let value_name = value_name
-            .to_string()
-            .unwrap_or_else(|_| "<unknown>".into());
-        return match io_error.kind() {
-            std::io::ErrorKind::NotFound => Err(Error::NotFound(value_name, io_error)),
-            std::io::ErrorKind::PermissionDenied => {
-                Err(Error::PermissionDenied(value_name, io_error))
-            }
-            _ => Err(Error::Unknown(value_name, io_error)),
-        };
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -237,17 +250,7 @@ where
     let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
 
     if result != 0 {
-        let io_error = std::io::Error::from_raw_os_error(result);
-        let value_name = value_name
-            .to_string()
-            .unwrap_or_else(|_| "<unknown>".into());
-        return match io_error.kind() {
-            std::io::ErrorKind::NotFound => Err(Error::NotFound(value_name, io_error)),
-            std::io::ErrorKind::PermissionDenied => {
-                Err(Error::PermissionDenied(value_name, io_error))
-            }
-            _ => Err(Error::Unknown(value_name, io_error)),
-        };
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -275,12 +278,7 @@ where
     };
 
     if result != 0 {
-        return Err(Error::BufferSize(
-            value_name
-                .to_string()
-                .unwrap_or_else(|_| "<unknown>".into()),
-            std::io::Error::from_raw_os_error(result),
-        ));
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     let mut buf = U16AlignedU8Vec::new(sz as usize);
@@ -299,17 +297,7 @@ where
     };
 
     if result != 0 {
-        let io_error = std::io::Error::from_raw_os_error(result);
-        let value_name = value_name
-            .to_string()
-            .unwrap_or_else(|_| "<unknown>".into());
-        return match io_error.kind() {
-            std::io::ErrorKind::NotFound => Err(Error::NotFound(value_name, io_error)),
-            std::io::ErrorKind::PermissionDenied => {
-                Err(Error::PermissionDenied(value_name, io_error))
-            }
-            _ => Err(Error::Unknown(value_name, io_error)),
-        };
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     parse_value_type_data(ty, buf)

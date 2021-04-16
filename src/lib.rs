@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn open_key() {
-        let result = Hive::LocalMachine
+        let result = Hive::CurrentUser
             .open(r"SOFTWARE\Microsoft", Security::AllAccess)
             .unwrap();
         println!("{}", result);
@@ -54,8 +54,8 @@ mod tests {
 
     #[test]
     fn iter_keys() {
-        let regkey = Hive::LocalMachine
-            .open(r"SOFTWARE\Microsoft\Windows", Security::AllAccess)
+        let regkey = Hive::CurrentUser
+            .open(r"SOFTWARE\Microsoft", Security::AllAccess)
             .unwrap();
         let results = regkey.keys().collect::<Result<Vec<_>, _>>().unwrap();
         println!("{:?}", &results);
