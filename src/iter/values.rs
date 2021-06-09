@@ -4,7 +4,7 @@ use utfx::{U16CStr, U16CString};
 use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
 use winapi::um::winreg::{RegEnumValueW, RegQueryInfoKeyW};
 
-use crate::{key::RegKey, util::U16AlignedU8Vec, Data};
+use crate::{key::RegKey, Data};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -29,7 +29,7 @@ pub enum Error {
 pub struct Values<'a> {
     regkey: &'a RegKey,
     name_buf: Vec<u16>,
-    data_buf: U16AlignedU8Vec,
+    data_buf: Vec<u16>,
     index: u32,
 }
 
@@ -98,11 +98,11 @@ impl<'a> Iterator for Values<'a> {
         self.name_buf[0] = 0;
         let mut name_len = self.name_buf.len() as u32;
 
-        for v in &mut self.data_buf.0 {
+        for v in &mut self.data_buf {
             *v = 0;
         }
         let mut data_type: u32 = 0u32;
-        let mut data_len = self.data_buf.len() as u32;
+        let mut data_len = (self.data_buf.len() * 2) as u32;
 
         let result = unsafe {
             RegEnumValueW(
@@ -112,7 +112,7 @@ impl<'a> Iterator for Values<'a> {
                 &mut name_len,
                 null_mut(),
                 &mut data_type,
-                self.data_buf.as_mut_ptr(),
+                self.data_buf.as_mut_ptr() as *mut u8,
                 &mut data_len,
             )
         };
@@ -175,7 +175,7 @@ impl<'a> Values<'a> {
             return Ok(Values {
                 regkey,
                 name_buf: vec![0u16; max_value_name_len as usize + 1],
-                data_buf: U16AlignedU8Vec::new(max_value_data_len as usize),
+                data_buf: vec![0u16; (max_value_data_len / 2 + max_value_data_len % 2) as usize],
                 index: 0,
             });
         }

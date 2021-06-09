@@ -29,7 +29,6 @@ mod hive;
 pub mod iter;
 pub mod key;
 mod sec;
-mod util;
 pub mod value;
 
 pub use hive::Hive;

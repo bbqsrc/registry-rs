@@ -9,8 +9,6 @@ use utfx::U16CString;
 use winapi::shared::minwindef::HKEY;
 use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
 
-use crate::util::U16AlignedU8Vec;
-
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -281,7 +279,8 @@ where
         return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
-    let mut buf = U16AlignedU8Vec::new(sz as usize);
+    // sz is size in bytes, we'll make a u16 vec.
+    let mut buf: Vec<u16> = vec![0u16; (sz / 2 + sz % 2) as usize];
     let mut ty = 0u32;
 
     // Get the actual value
@@ -291,7 +290,7 @@ where
             value_name.as_ptr(),
             null_mut(),
             &mut ty,
-            buf.as_mut_ptr(),
+            buf.as_mut_ptr() as *mut u8,
             &mut sz,
         )
     };
@@ -303,29 +302,46 @@ where
     parse_value_type_data(ty, buf)
 }
 
+pub fn u16_to_u8_vec(mut vec: Vec<u16>) -> Vec<u8> {
+    unsafe {
+        let capacity = vec.capacity();
+        let len = vec.len();
+        let ptr = vec.as_mut_ptr();
+        std::mem::forget(vec);
+        Vec::from_raw_parts(ptr as *mut u8, len, capacity)
+    }
+}
+
 #[inline(always)]
-pub(crate) fn parse_value_type_data(ty: u32, buf: U16AlignedU8Vec) -> Result<Data, Error> {
+pub(crate) fn parse_value_type_data(ty: u32, buf: Vec<u16>) -> Result<Data, Error> {
     let ty = Type::try_from(ty).map_err(|_| Error::UnhandledType(ty))?;
 
     match ty {
-        Type::None => Ok(Data::None),
-        Type::String => parse_wide_string_nul(buf.into_u16_vec()).map(Data::String),
-        Type::ExpandString => parse_wide_string_nul(buf.into_u16_vec()).map(Data::ExpandString),
-        Type::Binary => Ok(Data::Binary(buf.0)),
+        Type::None => return Ok(Data::None),
+        Type::String => return parse_wide_string_nul(buf).map(Data::String),
+        Type::ExpandString => return parse_wide_string_nul(buf).map(Data::ExpandString),
+        Type::Link => return Ok(Data::Link),
+        Type::MultiString => return parse_wide_multi_string(buf).map(Data::MultiString),
+        Type::ResourceList => return Ok(Data::ResourceList),
+        Type::FullResourceDescriptor => return Ok(Data::FullResourceDescriptor),
+        Type::ResourceRequirementsList => return Ok(Data::ResourceRequirementsList),
+        _ => {}
+    }
+
+    let buf = u16_to_u8_vec(buf);
+
+    match ty {
+        Type::Binary => Ok(Data::Binary(buf)),
         Type::U32 => Ok(Data::U32(u32::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3],
         ]))),
         Type::U32BE => Ok(Data::U32BE(u32::from_be_bytes([
             buf[0], buf[1], buf[2], buf[3],
         ]))),
-        Type::Link => Ok(Data::Link),
-        Type::MultiString => parse_wide_multi_string(buf.into_u16_vec()).map(Data::MultiString),
-        Type::ResourceList => Ok(Data::ResourceList),
-        Type::FullResourceDescriptor => Ok(Data::FullResourceDescriptor),
-        Type::ResourceRequirementsList => Ok(Data::ResourceRequirementsList),
         Type::U64 => Ok(Data::U64(u64::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
         ]))),
+        _ => unreachable!(),
     }
 }
 
