@@ -39,6 +39,21 @@ pub use sec::Security;
 #[doc(inline)]
 pub use value::Data;
 
+#[derive(Debug, thiserror::Error)]
+/// A higher level convenience error type for functions that do
+/// multiple registry-related operations and don't want to invent
+/// their own error type.
+pub enum Error {
+    #[error("A key error occurred.")]
+    Key(#[from] key::Error),
+    #[error("A keys error occurred.")]
+    Keys(#[from] iter::keys::Error),
+    #[error("A value error occurred.")]
+    Value(#[from] value::Error),
+    #[error("A values error occurred.")]
+    Values(#[from] iter::values::Error),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
