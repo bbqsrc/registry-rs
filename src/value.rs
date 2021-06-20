@@ -1,6 +1,6 @@
 use std::{
     convert::{Infallible, TryFrom, TryInto},
-    fmt::Display,
+    fmt::{Debug, Display},
     io,
     ptr::null_mut,
 };
@@ -93,7 +93,7 @@ impl Type {
 }
 
 /// A type-safe wrapper around Windows Registry value data.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Data {
     None,
     String(U16CString),
@@ -107,6 +107,31 @@ pub enum Data {
     FullResourceDescriptor,
     ResourceRequirementsList,
     U64(u64),
+}
+
+impl Debug for Data {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Data::None => f.write_str("None"),
+            Data::String(s) => {
+                write!(f, "String({:?})", s.to_string_lossy())
+            }
+            Data::ExpandString(s) => {
+                write!(f, "ExpandString({:?})", s.to_string_lossy())
+            }
+            Data::Binary(s) => write!(f, "Binary({:?})", s),
+            Data::U32(x) => write!(f, "U32({})", x),
+            Data::U32BE(x) => write!(f, "U32BE({})", x),
+            Data::Link => f.write_str("Link"),
+            x @ Data::MultiString(_) => {
+                write!(f, "MultiString({})", x.to_string())
+            }
+            Data::ResourceList => f.write_str("ResourceList"),
+            Data::FullResourceDescriptor => f.write_str("FullResourceDescriptor"),
+            Data::ResourceRequirementsList => f.write_str("ResourceRequirementsList"),
+            Data::U64(x) => write!(f, "U64({})", x),
+        }
+    }
 }
 
 impl Display for Data {
