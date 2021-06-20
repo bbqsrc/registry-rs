@@ -229,7 +229,7 @@ fn parse_wide_multi_string(vec: Vec<u16>) -> Result<Vec<U16CString>, Error> {
         return Err(Error::MissingMultiNul);
     }
 
-    (&vec[0..vec.len() - 1])
+    (&vec[0..vec.len() - 2])
         .split(|x| *x == 0)
         .map(U16CString::new)
         .collect::<Result<Vec<_>, _>>()
