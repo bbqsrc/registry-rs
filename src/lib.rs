@@ -85,6 +85,19 @@ mod tests {
     }
 
     #[test]
+    fn display_repr() {
+        const KEY_UNINSTALL: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+        let regkey = Hive::LocalMachine
+            .open(KEY_UNINSTALL, Security::Read)
+            .unwrap();
+
+        assert_eq!(
+            format!("{}", regkey),
+            r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+        );
+    }
+
+    #[test]
     fn set_value_and_delete() {
         let regkey = Hive::CurrentUser
             .create(r"Test\registry-rust-crate", Security::AllAccess)
@@ -113,6 +126,22 @@ mod tests {
 
         let results = regkey.values().collect::<Result<Vec<_>, _>>().unwrap();
         println!("{:?}", &results);
+
+        assert_eq!(
+            format!("{}", regkey),
+            r"HKEY_CURRENT_USER\Test\registry-rust-crate"
+        );
+        let subkey = regkey.create("subkey", Security::AllAccess).unwrap();
+        assert_eq!(
+            format!("{}", subkey),
+            r"HKEY_CURRENT_USER\Test\registry-rust-crate\subkey"
+        );
+
+        let subkey = regkey.open("subkey", Security::AllAccess).unwrap();
+        assert_eq!(
+            format!("{}", subkey),
+            r"HKEY_CURRENT_USER\Test\registry-rust-crate\subkey"
+        );
 
         Hive::CurrentUser.delete("Test", true).unwrap();
     }

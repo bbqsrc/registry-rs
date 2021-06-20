@@ -95,10 +95,17 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        open_hkey(self.handle, &path, sec).map(|handle| RegKey {
-            hive: self.hive,
-            handle,
-            path,
+        open_hkey(self.handle, &path, sec).map(|handle| {
+            let joined_path = format!(
+                r"{}\{}",
+                self.path.to_string().unwrap(),
+                path.to_string().unwrap()
+            );
+            RegKey {
+                hive: self.hive,
+                handle,
+                path: joined_path.try_into().unwrap(),
+            }
         })
     }
 
@@ -119,10 +126,17 @@ impl RegKey {
         P::Error: Into<Error>,
     {
         let path = path.try_into().map_err(Into::into)?;
-        create_hkey(self.handle, &path, sec).map(|handle| RegKey {
-            hive: self.hive,
-            handle,
-            path,
+        create_hkey(self.handle, &path, sec).map(|handle| {
+            let joined_path = format!(
+                r"{}\{}",
+                self.path.to_string().unwrap(),
+                path.to_string().unwrap()
+            );
+            RegKey {
+                hive: self.hive,
+                handle,
+                path: joined_path.try_into().unwrap(),
+            }
         })
     }
 
