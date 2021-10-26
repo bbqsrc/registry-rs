@@ -333,7 +333,7 @@ pub fn u16_to_u8_vec(mut vec: Vec<u16>) -> Vec<u8> {
         let len = vec.len();
         let ptr = vec.as_mut_ptr();
         std::mem::forget(vec);
-        Vec::from_raw_parts(ptr as *mut u8, len, capacity)
+        Vec::from_raw_parts(ptr as *mut u8, 2 * len, 2 * capacity)
     }
 }
 
