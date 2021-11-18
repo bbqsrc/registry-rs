@@ -6,7 +6,7 @@ use windows::Win32::{System::Threading::GetCurrentProcess,
         SE_PRIVILEGE_ENABLED, TOKEN_PRIVILEGES, TOKEN_ADJUST_PRIVILEGES, LUID_AND_ATTRIBUTES,
         AdjustTokenPrivileges, LookupPrivilegeValueW
     },
-    Foundation::{LUID, HANDLE},
+    Foundation::{LUID, HANDLE, PWSTR},
     System::Threading::OpenProcessToken
 };
 
@@ -14,9 +14,9 @@ const SE_BACKUP_NAME: &'static str = "SeBackupPrivilege";
 const SE_RESTORE_NAME: &'static str = "SeRestorePrivilege";
 
 fn main() -> Result<(), std::io::Error> {
-    let mut token = std::ptr::null_mut();
+    let mut token = HANDLE::default();
     let r = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &mut token) };
-    if r == 0 {
+    if r == false {
         return Err(std::io::Error::last_os_error());
     }
 
@@ -40,8 +40,8 @@ fn set_privilege(handle: HANDLE, name: &str) -> Result<(), std::io::Error> {
         HighPart: 0,
     };
     let name: U16CString = name.try_into().unwrap();
-    let r = unsafe { LookupPrivilegeValueW(std::ptr::null(), name.as_ptr(), &mut luid) };
-    if r == 0 {
+    let r = unsafe { LookupPrivilegeValueW(PWSTR::default(), PWSTR(name.as_ptr() as *mut u16), &mut luid) };
+    if r == false {
         return Err(std::io::Error::last_os_error());
     }
 
@@ -56,7 +56,7 @@ fn set_privilege(handle: HANDLE, name: &str) -> Result<(), std::io::Error> {
     let r = unsafe {
         AdjustTokenPrivileges(
             handle,
-            false as i32,
+            false,
             &mut privilege,
             std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
             std::ptr::null_mut(),
@@ -64,7 +64,7 @@ fn set_privilege(handle: HANDLE, name: &str) -> Result<(), std::io::Error> {
         )
     };
 
-    if r == 0 {
+    if r == false {
         return Err(std::io::Error::last_os_error());
     }
     Ok(())

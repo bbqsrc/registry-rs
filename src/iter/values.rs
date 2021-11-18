@@ -2,8 +2,8 @@ use std::{convert::TryInto, fmt::Debug, ptr::null_mut};
 
 use utfx::{U16CStr, U16CString};
 use windows::Win32::{
-    Foundation::ERROR_NO_MORE_ITEMS,
-    System::Registry::RegQueryInfoKeyW
+    Foundation::{PWSTR, ERROR_NO_MORE_ITEMS},
+    System::Registry::{RegQueryInfoKeyW, RegEnumValueW}
 };
 
 use crate::{key::RegKey, Data};
@@ -110,7 +110,7 @@ impl<'a> Iterator for Values<'a> {
             RegEnumValueW(
                 self.regkey.handle,
                 self.index,
-                self.name_buf.as_mut_ptr(),
+                PWSTR(self.name_buf.as_mut_ptr()),
                 &mut name_len,
                 null_mut(),
                 &mut data_type,
@@ -119,14 +119,14 @@ impl<'a> Iterator for Values<'a> {
             )
         };
 
-        if result == ERROR_NO_MORE_ITEMS as i32 {
+        if result.0 == ERROR_NO_MORE_ITEMS.0 as i32 {
             return None;
         }
 
-        if result != 0 {
+        if result.0 != 0 {
             return Some(Err(Error::Unknown(
                 self.index,
-                std::io::Error::from_raw_os_error(result),
+                std::io::Error::from_raw_os_error(result.0),
             )));
         }
 
@@ -159,7 +159,7 @@ impl<'a> Values<'a> {
         let result = unsafe {
             RegQueryInfoKeyW(
                 regkey.handle,
-                null_mut(),
+                PWSTR::default(),
                 null_mut(),
                 null_mut(),
                 null_mut(),
@@ -173,7 +173,7 @@ impl<'a> Values<'a> {
             )
         };
 
-        if result == 0 {
+        if result.0 == 0 {
             return Ok(Values {
                 regkey,
                 name_buf: vec![0u16; max_value_name_len as usize + 1],
@@ -182,6 +182,6 @@ impl<'a> Values<'a> {
             });
         }
 
-        Err(std::io::Error::from_raw_os_error(result))
+        Err(std::io::Error::from_raw_os_error(result.0))
     }
 }

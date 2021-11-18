@@ -5,7 +5,7 @@ use std::{
 
 use utfx::{U16CString, U16String};
 use windows::Win32::{
-    Foundation::ERROR_NO_MORE_ITEMS,
+    Foundation::{PWSTR, ERROR_NO_MORE_ITEMS},
     System::Registry::{RegEnumKeyExW, RegQueryInfoKeyW}
 };
 use crate::key::RegKey;
@@ -85,22 +85,22 @@ impl<'a> Iterator for Keys<'a> {
             RegEnumKeyExW(
                 self.regkey.handle,
                 self.index,
-                self.buf.as_mut_ptr(),
+                PWSTR(self.buf.as_mut_ptr()),
                 &mut len,
                 null_mut(),
-                null_mut(),
+                PWSTR::default(),
                 null_mut(),
                 null_mut(),
             )
         };
 
-        if result == ERROR_NO_MORE_ITEMS as i32 {
+        if result.0 == ERROR_NO_MORE_ITEMS.0 as i32 {
             return None;
         }
 
         self.index += 1;
 
-        if result != 0 {
+        if result.0 != 0 {
             // TODO: don't panic
             panic!();
         }
@@ -125,7 +125,7 @@ impl<'a> Keys<'a> {
         let result = unsafe {
             RegQueryInfoKeyW(
                 regkey.handle,
-                null_mut(),
+                PWSTR::default(),
                 null_mut(),
                 null_mut(),
                 null_mut(), // &mut subkeys_len,
@@ -139,7 +139,7 @@ impl<'a> Keys<'a> {
             )
         };
 
-        if result == 0 {
+        if result.0 == 0 {
             return Ok(Keys {
                 regkey,
                 buf: vec![0u16; subkeys_max_str_len as usize + 1],
@@ -147,6 +147,6 @@ impl<'a> Keys<'a> {
             });
         }
 
-        Err(std::io::Error::from_raw_os_error(result))
+        Err(std::io::Error::from_raw_os_error(result.0))
     }
 }

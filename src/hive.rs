@@ -1,9 +1,12 @@
 use std::{convert::TryInto, fmt::Display};
 
 use utfx::{U16CStr, U16CString};
-use windows::Win32::System::Registry::{
-    HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,
-    HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_USERS, HKEY, RegLoadAppKeyW
+use windows::Win32::{
+    Foundation::PWSTR,
+    System::Registry::{
+        HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,
+        HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_USERS, HKEY, RegLoadAppKeyW
+    }
 };
 
 use crate::key::{self, Error};
@@ -130,12 +133,12 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegLoadAppKeyW(path.as_ptr(), &mut hkey, sec.bits(), 0, 0) };
+    let mut hkey = HKEY::default();
+    let result = unsafe { RegLoadAppKeyW(PWSTR(path.as_ptr() as *mut u16), &mut hkey, sec.bits(), 0, 0) };
 
-    if result == 0 {
+    if result.0 == 0 {
         return Ok(hkey);
     }
 
-    Err(std::io::Error::from_raw_os_error(result))
+    Err(std::io::Error::from_raw_os_error(result.0))
 }

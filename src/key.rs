@@ -2,13 +2,15 @@ use std::{
     convert::{Infallible, TryInto},
     fmt::Display,
     io,
-    ptr::null_mut,
 };
 
 use utfx::{U16CStr, U16CString};
-use windows::Win32::System::Registry::{
-    HKEY, RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
-    RegSaveKeyExW,
+use windows::Win32::{
+    Foundation::PWSTR,
+    System::Registry::{
+        REG_SAM_FLAGS, REG_SAVE_FORMAT, REG_OPEN_CREATE_OPTIONS, HKEY, RegCloseKey, RegCreateKeyExW,
+        RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW, RegSaveKeyExW
+    }
 };
 
 use crate::iter;
@@ -198,11 +200,11 @@ impl RegKey {
     }
 
     pub fn open_current_user(sec: Security) -> Result<RegKey, Error> {
-        let mut hkey = null_mut();
+        let mut hkey = HKEY::default();
 
         let result = unsafe { RegOpenCurrentUser(sec.bits(), &mut hkey) };
 
-        if result == 0 {
+        if result.0 == 0 {
             // TODO: use NT API to query path
             return Ok(RegKey {
                 hive: Hive::CurrentUser,
@@ -212,7 +214,7 @@ impl RegKey {
         }
 
         let path = "<current user>".to_string();
-        Err(Error::from_code(result, path))
+        Err(Error::from_code(result.0, path))
     }
 }
 
@@ -222,15 +224,15 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
+    let mut hkey = HKEY::default();
+    let result = unsafe { RegOpenKeyExW(base, PWSTR(path.as_ptr() as *mut u16), 0, REG_SAM_FLAGS(sec.bits()), &mut hkey) };
 
-    if result == 0 {
+    if result.0 == 0 {
         return Ok(hkey);
     }
 
     let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    Err(Error::from_code(result.0, path))
 }
 
 #[inline]
@@ -239,14 +241,14 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let result = unsafe { RegSaveKeyExW(hkey, path.as_ptr(), std::ptr::null_mut(), 4) };
+    let result = unsafe { RegSaveKeyExW(hkey, PWSTR(path.as_ptr() as *mut u16), std::ptr::null_mut(), REG_SAVE_FORMAT(4)) };
 
-    if result == 0 {
+    if result.0 == 0 {
         return Ok(());
     }
 
     let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    Err(Error::from_code(result.0, path))
 }
 
 #[inline]
@@ -257,17 +259,17 @@ where
     let path = path.as_ref();
 
     let result = if is_recursive {
-        unsafe { RegDeleteTreeW(base, path.as_ptr()) }
+        unsafe { RegDeleteTreeW(base, PWSTR(path.as_ptr() as *mut u16)) }
     } else {
-        unsafe { RegDeleteKeyW(base, path.as_ptr()) }
+        unsafe { RegDeleteKeyW(base, PWSTR(path.as_ptr() as *mut u16)) }
     };
 
-    if result == 0 {
+    if result.0 == 0 {
         return Ok(());
     }
 
     let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    Err(Error::from_code(result.0, path))
 }
 
 #[inline]
@@ -276,27 +278,27 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
+    let mut hkey = HKEY::default();
     let result = unsafe {
         RegCreateKeyExW(
             base,
-            path.as_ptr(),
+            PWSTR(path.as_ptr() as *mut u16),
             0,
-            std::ptr::null_mut(),
-            0,
-            sec.bits(),
+            PWSTR::default(),
+            REG_OPEN_CREATE_OPTIONS(0),
+            REG_SAM_FLAGS(sec.bits()),
             std::ptr::null_mut(),
             &mut hkey,
             std::ptr::null_mut(),
         )
     };
 
-    if result == 0 {
+    if result.0 == 0 {
         return Ok(hkey);
     }
 
     let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    Err(Error::from_code(result.0, path))
 }
 
 #[cfg(test)]
