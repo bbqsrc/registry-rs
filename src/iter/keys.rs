@@ -4,9 +4,8 @@ use std::{
 };
 
 use utfx::{U16CString, U16String};
-use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
-use winapi::um::winreg::{RegEnumKeyExW, RegQueryInfoKeyW};
-
+use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
+use windows::Win32::System::Registry::{RegEnumKeyExW, RegQueryInfoKeyW};
 use crate::key::RegKey;
 use crate::sec::Security;
 

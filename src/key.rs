@@ -6,9 +6,8 @@ use std::{
 };
 
 use utfx::{U16CStr, U16CString};
-use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
+use windows::Win32::System::Registry::{
+    HKEY, RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
     RegSaveKeyExW,
 };
 

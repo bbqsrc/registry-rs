@@ -6,8 +6,7 @@ use std::{
 };
 
 use utfx::U16CString;
-use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
+use windows::Win32::System::Registry::{HKEY, RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]

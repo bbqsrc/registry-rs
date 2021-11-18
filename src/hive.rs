@@ -1,11 +1,11 @@
 use std::{convert::TryInto, fmt::Display};
 
 use utfx::{U16CStr, U16CString};
-use winapi::um::winreg::{
+use windows::Win32::System::Registry::{
     HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_CURRENT_USER_LOCAL_SETTINGS,
     HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_USERS,
 };
-use winapi::{shared::minwindef::HKEY, um::winreg::RegLoadAppKeyW};
+use windows::Win32::System::Registry::{HKEY, RegLoadAppKeyW};
 
 use crate::key::{self, Error};
 use crate::{sec::Security, RegKey};

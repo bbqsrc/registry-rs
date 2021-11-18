@@ -1,18 +1,17 @@
 use registry::{Hive, Security};
 use std::convert::TryInto;
 use utfx::U16CString;
-use winapi::um::processthreadsapi::GetCurrentProcess;
-use winapi::um::winnt::TOKEN_ADJUST_PRIVILEGES;
-use winapi::{
-    shared::ntdef::LUID,
-    um::{
-        processthreadsapi::OpenProcessToken,
-        securitybaseapi::AdjustTokenPrivileges,
-        winbase::LookupPrivilegeValueW,
-        winnt::LUID_AND_ATTRIBUTES,
-        winnt::{HANDLE, SE_BACKUP_NAME, SE_PRIVILEGE_ENABLED, SE_RESTORE_NAME, TOKEN_PRIVILEGES},
-    },
+use windows::Win32::System::Threading::GetCurrentProcess;
+use windows::Win32::Security::{
+    SE_PRIVILEGE_ENABLED, TOKEN_PRIVILEGES, TOKEN_ADJUST_PRIVILEGES, LUID_AND_ATTRIBUTES,
+    AdjustTokenPrivileges, LookupPrivilegeValueW
 };
+use windows::Win32::Foundation::{LUID, HANDLE};
+use windows::Win32::System::Threading::OpenProcessToken;
+
+const SE_BACKUP_NAME: str = "SeBackupPrivilege";
+const SE_RESTORE_NAME: str = "SeRestorePrivilege";
+
 fn main() -> Result<(), std::io::Error> {
     let mut token = std::ptr::null_mut();
     let r = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &mut token) };
