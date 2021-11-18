@@ -10,8 +10,8 @@ use windows::Win32::{System::Threading::GetCurrentProcess,
     System::Threading::OpenProcessToken
 };
 
-const SE_BACKUP_NAME: str = "SeBackupPrivilege";
-const SE_RESTORE_NAME: str = "SeRestorePrivilege";
+const SE_BACKUP_NAME: &'static str = "SeBackupPrivilege";
+const SE_RESTORE_NAME: &'static str = "SeRestorePrivilege";
 
 fn main() -> Result<(), std::io::Error> {
     let mut token = std::ptr::null_mut();
