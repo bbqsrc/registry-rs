@@ -1,8 +1,10 @@
 use std::{convert::TryInto, fmt::Debug, ptr::null_mut};
 
 use utfx::{U16CStr, U16CString};
-use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
-use windows::Win32::System::Registry::{RegEnumKeyExW, RegQueryInfoKeyW};
+use windows::Win32::{
+    Foundation::ERROR_NO_MORE_ITEMS,
+    System::Registry::RegQueryInfoKeyW
+};
 
 use crate::{key::RegKey, Data};
 

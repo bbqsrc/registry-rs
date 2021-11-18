@@ -1,13 +1,14 @@
 use registry::{Hive, Security};
 use std::convert::TryInto;
 use utfx::U16CString;
-use windows::Win32::System::Threading::GetCurrentProcess;
-use windows::Win32::Security::{
-    SE_PRIVILEGE_ENABLED, TOKEN_PRIVILEGES, TOKEN_ADJUST_PRIVILEGES, LUID_AND_ATTRIBUTES,
-    AdjustTokenPrivileges, LookupPrivilegeValueW
+use windows::Win32::{System::Threading::GetCurrentProcess,
+    Security::{
+        SE_PRIVILEGE_ENABLED, TOKEN_PRIVILEGES, TOKEN_ADJUST_PRIVILEGES, LUID_AND_ATTRIBUTES,
+        AdjustTokenPrivileges, LookupPrivilegeValueW
+    },
+    Foundation::{LUID, HANDLE},
+    System::Threading::OpenProcessToken
 };
-use windows::Win32::Foundation::{LUID, HANDLE};
-use windows::Win32::System::Threading::OpenProcessToken;
 
 const SE_BACKUP_NAME: str = "SeBackupPrivilege";
 const SE_RESTORE_NAME: str = "SeRestorePrivilege";
