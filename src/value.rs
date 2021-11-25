@@ -308,7 +308,7 @@ where
 
     // sz is size in bytes, we'll make a u16 vec.
     let mut buf: Vec<u16> = vec![0u16; (sz / 2 + sz % 2) as usize];
-    let mut ty = 0u32;
+    let mut ty = REG_VALUE_TYPE(0);
 
     // Get the actual value
     let result = unsafe {
@@ -316,7 +316,7 @@ where
             base,
             PWSTR(value_name.as_ptr() as *mut u16),
             null_mut(),
-            &mut REG_VALUE_TYPE(ty),
+            &mut ty,
             buf.as_mut_ptr() as *mut u8,
             &mut sz,
         )
@@ -326,7 +326,7 @@ where
         return Err(Error::from_code(result.0, value_name.to_string_lossy()));
     }
 
-    parse_value_type_data(ty, buf)
+    parse_value_type_data(ty.0, buf)
 }
 
 pub fn u16_to_u8_vec(mut vec: Vec<u16>) -> Vec<u8> {
