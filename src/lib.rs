@@ -10,16 +10,21 @@
 //! In general, you will want to access a key from a [`Hive`](enum.Hive.html). This crate automatically handles
 //! the conversion of `String` and `str` into a UTF-16 string suitable for FFI usage.
 //!
-//! ```ignore
-//! let regkey = Hive::CurrentUser::open(r"some\nested\path", Security::Read)?;
+//! ```no_run
+//! # use registry::{Hive, Security};
+//! let regkey = Hive::CurrentUser.open(r"some\nested\path", Security::Read)?;
+//! # Ok::<(), registry::Error>(())
 //! ```
 //!
 //! A [`RegKey`](struct.RegKey.html) has all necessary functionality for querying subkeys, values within a key,
 //! and accessing key value data.
 //!
-//! ```ignore
-//! regkey.set_value("SomeValue", Data::U32(42))?;
-//! assert_eq!(regkey.value("SomeValue")?, Data::U32(42));
+//! ```no_run
+//! # use registry::{Data, Hive, Security};
+//! # let regkey = Hive::CurrentUser.open(r"some\nested\path", Security::Read)?;
+//! regkey.set_value("SomeValue", &Data::U32(42))?;
+//! assert!(matches!(regkey.value("SomeValue")?, Data::U32(42)));
+//! # Ok::<(), registry::Error>(())
 //! ```
 //!
 //! [`RegKey`](struct.RegKey.html)s also support iteration of all subkeys with the `keys()` function, and all values with the `values()` function.
