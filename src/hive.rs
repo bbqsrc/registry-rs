@@ -97,7 +97,10 @@ impl Hive {
         if !file_path.as_ref().exists() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("No hive found at path: {:?}", file_path.as_ref()),
+                format!(
+                    "No hive found at path: {:?}",
+                    file_path.as_ref()
+                ),
             ));
         }
         let path = U16CString::from_os_str(file_path.as_ref().as_os_str())
@@ -132,11 +135,21 @@ where
 {
     let path = path.as_ref();
     let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegLoadAppKeyW(path.as_ptr(), &mut hkey, sec.bits(), 0, 0) };
+    let result = unsafe {
+        RegLoadAppKeyW(
+            path.as_ptr(),
+            &mut hkey,
+            sec.bits(),
+            0,
+            0,
+        )
+    };
 
     if result == 0 {
         return Ok(hkey);
     }
 
-    Err(std::io::Error::from_raw_os_error(result))
+    Err(std::io::Error::from_raw_os_error(
+        result,
+    ))
 }
