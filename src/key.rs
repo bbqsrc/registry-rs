@@ -152,7 +152,11 @@ impl RegKey {
 
     #[inline]
     pub fn delete_self(self, is_recursive: bool) -> Result<(), Error> {
-        delete_hkey(self.handle, U16CString::default(), is_recursive)
+        delete_hkey(
+            self.handle,
+            U16CString::default(),
+            is_recursive,
+        )
     }
 
     #[inline]
@@ -186,7 +190,7 @@ impl RegKey {
     pub fn keys(&self) -> iter::Keys<'_> {
         match iter::Keys::new(self) {
             Ok(v) => v,
-            Err(e) => unreachable!(e),
+            Err(e) => unreachable!("{}", e),
         }
     }
 
@@ -194,7 +198,7 @@ impl RegKey {
     pub fn values(&self) -> iter::Values<'_> {
         match iter::Values::new(self) {
             Ok(v) => v,
-            Err(e) => unreachable!(e),
+            Err(e) => unreachable!("{}", e),
         }
     }
 
@@ -224,7 +228,15 @@ where
 {
     let path = path.as_ref();
     let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
+    let result = unsafe {
+        RegOpenKeyExW(
+            base,
+            path.as_ptr(),
+            0,
+            sec.bits(),
+            &mut hkey,
+        )
+    };
 
     if result == 0 {
         return Ok(hkey);
@@ -240,7 +252,14 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let result = unsafe { RegSaveKeyExW(hkey, path.as_ptr(), std::ptr::null_mut(), 4) };
+    let result = unsafe {
+        RegSaveKeyExW(
+            hkey,
+            path.as_ptr(),
+            std::ptr::null_mut(),
+            4,
+        )
+    };
 
     if result == 0 {
         return Ok(());
@@ -307,9 +326,15 @@ mod tests {
     #[test]
     fn test_paths() {
         let key = Hive::CurrentUser
-            .open("SOFTWARE\\Microsoft", crate::Security::Read)
+            .open(
+                "SOFTWARE\\Microsoft",
+                crate::Security::Read,
+            )
             .unwrap();
-        assert_eq!(key.to_string(), "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft")
+        assert_eq!(
+            key.to_string(),
+            "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft"
+        )
     }
 
     #[test]
@@ -327,7 +352,10 @@ mod tests {
     #[test]
     fn non_existent_value() {
         let key = Hive::CurrentUser
-            .open("SOFTWARE\\Microsoft", crate::Security::Read)
+            .open(
+                "SOFTWARE\\Microsoft",
+                crate::Security::Read,
+            )
             .unwrap();
         let value_err = key
             .value("4e996ef6-a4ef-4026-b9fc-464d352d35ee")
