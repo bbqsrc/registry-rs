@@ -117,7 +117,11 @@ impl Debug for Data {
                 write!(f, "String({:?})", s.to_string_lossy())
             }
             Data::ExpandString(s) => {
-                write!(f, "ExpandString({:?})", s.to_string_lossy())
+                write!(
+                    f,
+                    "ExpandString({:?})",
+                    s.to_string_lossy()
+                )
             }
             Data::Binary(s) => write!(f, "Binary({:?})", s),
             Data::U32(x) => write!(f, "U32({})", x),
@@ -225,7 +229,7 @@ fn parse_wide_string_nul(vec: Vec<u16>) -> Result<U16CString, Error> {
 
 fn parse_wide_multi_string(vec: Vec<u16>) -> Result<Vec<U16CString>, Error> {
     let len = vec.len();
-    if vec[len - 1] != 0 || vec[len - 2] != 0 {
+    if len < 2 || vec[len - 1] != 0 || vec[len - 2] != 0 {
         return Err(Error::MissingMultiNul);
     }
 
@@ -257,7 +261,10 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+        return Err(Error::from_code(
+            result,
+            value_name.to_string_lossy(),
+        ));
     }
 
     Ok(())
@@ -273,7 +280,10 @@ where
     let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
 
     if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+        return Err(Error::from_code(
+            result,
+            value_name.to_string_lossy(),
+        ));
     }
 
     Ok(())
@@ -301,7 +311,10 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+        return Err(Error::from_code(
+            result,
+            value_name.to_string_lossy(),
+        ));
     }
 
     // sz is size in bytes, we'll make a u16 vec.
@@ -321,7 +334,10 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+        return Err(Error::from_code(
+            result,
+            value_name.to_string_lossy(),
+        ));
     }
 
     parse_value_type_data(ty, buf)
