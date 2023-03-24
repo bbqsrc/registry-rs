@@ -146,8 +146,6 @@ impl<'a> Keys<'a> {
             });
         }
 
-        Err(std::io::Error::from_raw_os_error(
-            result,
-        ))
+        Err(std::io::Error::from_raw_os_error(result))
     }
 }

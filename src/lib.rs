@@ -66,10 +66,7 @@ mod tests {
     #[test]
     fn open_key() {
         let result = Hive::CurrentUser
-            .open(
-                r"SOFTWARE\Microsoft",
-                Security::AllAccess,
-            )
+            .open(r"SOFTWARE\Microsoft", Security::AllAccess)
             .unwrap();
         println!("{}", result);
     }
@@ -77,10 +74,7 @@ mod tests {
     #[test]
     fn iter_keys() {
         let regkey = Hive::CurrentUser
-            .open(
-                r"SOFTWARE\Microsoft",
-                Security::AllAccess,
-            )
+            .open(r"SOFTWARE\Microsoft", Security::AllAccess)
             .unwrap();
         let results = regkey.keys().collect::<Result<Vec<_>, _>>().unwrap();
         println!("{:?}", &results);
@@ -89,10 +83,7 @@ mod tests {
     #[test]
     fn iter_values() {
         let regkey = Hive::CurrentUser
-            .open(
-                r"Keyboard Layout\Preload",
-                Security::Read,
-            )
+            .open(r"Keyboard Layout\Preload", Security::Read)
             .unwrap();
         let results = regkey.values().collect::<Result<Vec<_>, _>>().unwrap();
         println!("{:?}", &results);
@@ -114,16 +105,10 @@ mod tests {
     #[test]
     fn set_value_and_delete() {
         let regkey = Hive::CurrentUser
-            .create(
-                r"Test\registry-rust-crate",
-                Security::AllAccess,
-            )
+            .create(r"Test\registry-rust-crate", Security::AllAccess)
             .unwrap();
         regkey
-            .set_value(
-                "test",
-                &Data::String("Meow meow".try_into().unwrap()),
-            )
+            .set_value("test", &Data::String("Meow meow".try_into().unwrap()))
             .unwrap();
         regkey
             .set_value(
@@ -136,10 +121,7 @@ mod tests {
             .unwrap();
         regkey.set_value("nothing", &Data::None).unwrap();
         regkey
-            .set_value(
-                "some binary",
-                &Data::Binary(vec![1, 2, 3, 4, 255]),
-            )
+            .set_value("some binary", &Data::Binary(vec![1, 2, 3, 4, 255]))
             .unwrap();
         regkey.set_value("u32", &Data::U32(0x1234FEFE)).unwrap();
         regkey.set_value("u32be", &Data::U32BE(0x1234FEFE)).unwrap();

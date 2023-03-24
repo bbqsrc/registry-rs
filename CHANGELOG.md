@@ -1,3 +1,15 @@
+## 1.2.3 - 2023-03-24
+
+- Fix: panic with too short vec for MultiString (thanks @PyPylia)
+
+## 1.2.2 - 2022-05-16
+
+- Improvement: fix docs and code samples
+
+## 1.2.1 - 2021-10-26
+
+- Fix: reading integer values
+
 ## 1.2.0 - 2021-06-20
 
 - Added high level `Error` type for convenience in implementing crates

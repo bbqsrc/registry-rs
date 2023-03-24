@@ -117,11 +117,7 @@ impl Debug for Data {
                 write!(f, "String({:?})", s.to_string_lossy())
             }
             Data::ExpandString(s) => {
-                write!(
-                    f,
-                    "ExpandString({:?})",
-                    s.to_string_lossy()
-                )
+                write!(f, "ExpandString({:?})", s.to_string_lossy())
             }
             Data::Binary(s) => write!(f, "Binary({:?})", s),
             Data::U32(x) => write!(f, "U32({})", x),
@@ -261,10 +257,7 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(
-            result,
-            value_name.to_string_lossy(),
-        ));
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -280,10 +273,7 @@ where
     let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
 
     if result != 0 {
-        return Err(Error::from_code(
-            result,
-            value_name.to_string_lossy(),
-        ));
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -311,10 +301,7 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(
-            result,
-            value_name.to_string_lossy(),
-        ));
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     // sz is size in bytes, we'll make a u16 vec.
@@ -334,10 +321,7 @@ where
     };
 
     if result != 0 {
-        return Err(Error::from_code(
-            result,
-            value_name.to_string_lossy(),
-        ));
+        return Err(Error::from_code(result, value_name.to_string_lossy()));
     }
 
     parse_value_type_data(ty, buf)
