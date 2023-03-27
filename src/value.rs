@@ -6,8 +6,10 @@ use std::{
 };
 
 use utfx::U16CString;
-use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
+use windows::Win32::{
+    Foundation::PWSTR,
+    System::Registry::{REG_VALUE_TYPE, HKEY, RegDeleteValueW, RegQueryValueExW, RegSetValueExW}
+};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -248,16 +250,16 @@ where
     let result = unsafe {
         RegSetValueExW(
             base,
-            value_name.as_ptr(),
+            PWSTR(value_name.as_ptr() as *mut u16),
             0,
-            raw_ty,
+            REG_VALUE_TYPE(raw_ty),
             vec.as_ptr(),
             vec.len() as u32,
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.0 != 0 {
+        return Err(Error::from_code(result.0, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -270,10 +272,10 @@ where
     S::Error: Into<Error>,
 {
     let value_name = value_name.try_into().map_err(Into::into)?;
-    let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
+    let result = unsafe { RegDeleteValueW(base, PWSTR(value_name.as_ptr() as *mut u16)) };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.0 != 0 {
+        return Err(Error::from_code(result.0, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -292,7 +294,7 @@ where
     let result = unsafe {
         RegQueryValueExW(
             base,
-            value_name.as_ptr(),
+            PWSTR(value_name.as_ptr() as *mut u16),
             null_mut(),
             null_mut(),
             null_mut(),
@@ -300,19 +302,19 @@ where
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.0 != 0 {
+        return Err(Error::from_code(result.0, value_name.to_string_lossy()));
     }
 
     // sz is size in bytes, we'll make a u16 vec.
     let mut buf: Vec<u16> = vec![0u16; (sz / 2 + sz % 2) as usize];
-    let mut ty = 0u32;
+    let mut ty = REG_VALUE_TYPE(0);
 
     // Get the actual value
     let result = unsafe {
         RegQueryValueExW(
             base,
-            value_name.as_ptr(),
+            PWSTR(value_name.as_ptr() as *mut u16),
             null_mut(),
             &mut ty,
             buf.as_mut_ptr() as *mut u8,
@@ -320,11 +322,11 @@ where
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.0 != 0 {
+        return Err(Error::from_code(result.0, value_name.to_string_lossy()));
     }
 
-    parse_value_type_data(ty, buf)
+    parse_value_type_data(ty.0, buf)
 }
 
 pub fn u16_to_u8_vec(mut vec: Vec<u16>) -> Vec<u8> {
