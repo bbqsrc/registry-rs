@@ -2,15 +2,10 @@ use std::{
     convert::{Infallible, TryInto},
     fmt::Display,
     io,
-    ptr::null_mut,
 };
 
 use utfx::{U16CStr, U16CString};
-use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW,
-    RegSaveKeyExW,
-};
+use windows::{core::PCWSTR, Win32::System::Registry::{RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegDeleteTreeW, RegOpenCurrentUser, RegOpenKeyExW, RegSaveKeyExW, HKEY, REG_NO_COMPRESSION, REG_OPEN_CREATE_OPTIONS}};
 
 use crate::iter;
 use crate::sec::Security;
@@ -83,7 +78,7 @@ impl Display for RegKey {
 impl Drop for RegKey {
     fn drop(&mut self) {
         // No point checking the return value here.
-        unsafe { RegCloseKey(self.handle) };
+        let _ = unsafe { RegCloseKey(self.handle) };
     }
 }
 
@@ -199,11 +194,11 @@ impl RegKey {
     }
 
     pub fn open_current_user(sec: Security) -> Result<RegKey, Error> {
-        let mut hkey = null_mut();
+        let mut hkey = HKEY::default();
 
         let result = unsafe { RegOpenCurrentUser(sec.bits(), &mut hkey) };
 
-        if result == 0 {
+        if result.is_ok() {
             // TODO: use NT API to query path
             return Ok(RegKey {
                 hive: Hive::CurrentUser,
@@ -213,7 +208,7 @@ impl RegKey {
         }
 
         let path = "<current user>".to_string();
-        Err(Error::from_code(result, path))
+        Err(Error::from_code(result.0 as i32, path))
     }
 }
 
@@ -223,15 +218,16 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
-    let result = unsafe { RegOpenKeyExW(base, path.as_ptr(), 0, sec.bits(), &mut hkey) };
+    let mut hkey = HKEY::default();
+    let result = unsafe { RegOpenKeyExW(base, PCWSTR(path.as_ptr()), 0, sec.into(), &mut hkey) };
 
-    if result == 0 {
+    if result.is_ok() {
         return Ok(hkey);
     }
-
-    let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    else {
+        let path = path.to_string_lossy();
+        Err(Error::from_code(result.0 as i32, path))
+    }
 }
 
 #[inline]
@@ -240,14 +236,15 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let result = unsafe { RegSaveKeyExW(hkey, path.as_ptr(), std::ptr::null_mut(), 4) };
+    let result = unsafe { RegSaveKeyExW(hkey, PCWSTR(path.as_ptr()), None, REG_NO_COMPRESSION) };
 
-    if result == 0 {
+    if result.is_ok() {
         return Ok(());
     }
-
-    let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    else {
+        let path = path.to_string_lossy();
+        Err(Error::from_code(result.0 as i32, path))
+    }
 }
 
 #[inline]
@@ -258,17 +255,18 @@ where
     let path = path.as_ref();
 
     let result = if is_recursive {
-        unsafe { RegDeleteTreeW(base, path.as_ptr()) }
+        unsafe { RegDeleteTreeW(base, PCWSTR(path.as_ptr())) }
     } else {
-        unsafe { RegDeleteKeyW(base, path.as_ptr()) }
+        unsafe { RegDeleteKeyW(base, PCWSTR(path.as_ptr()))}
     };
 
-    if result == 0 {
+    if result.is_ok() {
         return Ok(());
     }
-
-    let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    else {
+        let path = path.to_string_lossy();
+        Err(Error::from_code(result.0 as i32, path))
+    }
 }
 
 #[inline]
@@ -277,27 +275,28 @@ where
     P: AsRef<U16CStr>,
 {
     let path = path.as_ref();
-    let mut hkey = std::ptr::null_mut();
+    let mut hkey = HKEY::default();
     let result = unsafe {
         RegCreateKeyExW(
             base,
-            path.as_ptr(),
+            PCWSTR(path.as_ptr()),
             0,
-            std::ptr::null_mut(),
-            0,
-            sec.bits(),
-            std::ptr::null_mut(),
+            None,
+            REG_OPEN_CREATE_OPTIONS::default(),
+            sec.into(),
+            None,
             &mut hkey,
-            std::ptr::null_mut(),
+            None,
         )
     };
 
-    if result == 0 {
+    if result.is_ok() {
         return Ok(hkey);
     }
-
-    let path = path.to_string_lossy();
-    Err(Error::from_code(result, path))
+    else{
+        let path = path.to_string_lossy();
+        Err(Error::from_code(result.0 as i32, path))
+    }
 }
 
 #[cfg(test)]

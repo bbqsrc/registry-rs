@@ -2,12 +2,10 @@ use std::{
     convert::{Infallible, TryFrom, TryInto},
     fmt::{Debug, Display},
     io,
-    ptr::null_mut,
 };
 
 use utfx::U16CString;
-use winapi::shared::minwindef::HKEY;
-use winapi::um::winreg::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW};
+use windows::{core::PCWSTR, Win32::System::Registry::{RegDeleteValueW, RegQueryValueExW, RegSetValueExW, HKEY, REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_EXPAND_SZ, REG_FULL_RESOURCE_DESCRIPTOR, REG_LINK, REG_MULTI_SZ, REG_NONE, REG_QWORD, REG_RESOURCE_LIST, REG_RESOURCE_REQUIREMENTS_LIST, REG_SZ, REG_VALUE_TYPE}};
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -90,6 +88,47 @@ pub(crate) enum Type {
 
 impl Type {
     const MAX: u32 = 11;
+}
+
+impl From<Type> for REG_VALUE_TYPE {
+    fn from(ty: Type) -> Self {
+        match ty {
+            Type::None => REG_NONE,
+            Type::String => REG_SZ,
+            Type::ExpandString => REG_EXPAND_SZ,
+            Type::Binary => REG_BINARY,
+            Type::U32 => REG_DWORD,
+            Type::U32BE => REG_DWORD_BIG_ENDIAN,
+            Type::Link => REG_LINK,
+            Type::MultiString => REG_MULTI_SZ,
+            Type::ResourceList => REG_RESOURCE_LIST,
+            Type::FullResourceDescriptor => REG_FULL_RESOURCE_DESCRIPTOR,
+            Type::ResourceRequirementsList => REG_RESOURCE_REQUIREMENTS_LIST,
+            Type::U64 => REG_QWORD,
+        }
+    }
+}
+
+impl TryFrom<REG_VALUE_TYPE> for Type {
+    type Error = Error;
+
+    fn try_from(value: REG_VALUE_TYPE) -> Result<Self, Self::Error> {
+        match value {
+            REG_NONE => Ok(Type::None),
+            REG_SZ => Ok(Type::String),
+            REG_EXPAND_SZ => Ok(Type::ExpandString),
+            REG_BINARY => Ok(Type::Binary),
+            REG_DWORD => Ok(Type::U32),
+            REG_DWORD_BIG_ENDIAN => Ok(Type::U32BE),
+            REG_LINK => Ok(Type::Link),
+            REG_MULTI_SZ => Ok(Type::MultiString),
+            REG_RESOURCE_LIST => Ok(Type::ResourceList),
+            REG_FULL_RESOURCE_DESCRIPTOR => Ok(Type::FullResourceDescriptor),
+            REG_RESOURCE_REQUIREMENTS_LIST => Ok(Type::ResourceRequirementsList),
+            REG_QWORD => Ok(Type::U64),
+            ty => Err(Error::UnhandledType(ty.0)),
+        }
+    }
 }
 
 /// A type-safe wrapper around Windows Registry value data.
@@ -243,21 +282,20 @@ where
     S::Error: Into<Error>,
 {
     let value_name = value_name.try_into().map_err(Into::into)?;
-    let raw_ty = data.as_type() as u32;
+    let raw_ty = data.as_type();
     let vec = data.to_bytes();
     let result = unsafe {
         RegSetValueExW(
             base,
-            value_name.as_ptr(),
+            PCWSTR(value_name.as_ptr()),
             0,
-            raw_ty,
-            vec.as_ptr(),
-            vec.len() as u32,
+            raw_ty.into(),
+            Some(&vec),
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.is_err() {
+        return Err(Error::from_code(result.0 as i32, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -270,10 +308,10 @@ where
     S::Error: Into<Error>,
 {
     let value_name = value_name.try_into().map_err(Into::into)?;
-    let result = unsafe { RegDeleteValueW(base, value_name.as_ptr()) };
+    let result = unsafe { RegDeleteValueW(base, PCWSTR(value_name.as_ptr())) };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.is_err() {
+        return Err(Error::from_code(result.0 as i32, value_name.to_string_lossy()));
     }
 
     Ok(())
@@ -292,36 +330,36 @@ where
     let result = unsafe {
         RegQueryValueExW(
             base,
-            value_name.as_ptr(),
-            null_mut(),
-            null_mut(),
-            null_mut(),
-            &mut sz,
+            PCWSTR(value_name.as_ptr()),
+            None,
+            None,
+            None,
+            Some(&mut sz),
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.is_err() {
+        return Err(Error::from_code(result.0 as i32, value_name.to_string_lossy()));
     }
 
     // sz is size in bytes, we'll make a u16 vec.
     let mut buf: Vec<u16> = vec![0u16; (sz / 2 + sz % 2) as usize];
-    let mut ty = 0u32;
+    let mut ty = REG_VALUE_TYPE::default();
 
     // Get the actual value
     let result = unsafe {
         RegQueryValueExW(
             base,
-            value_name.as_ptr(),
-            null_mut(),
-            &mut ty,
-            buf.as_mut_ptr() as *mut u8,
-            &mut sz,
+            PCWSTR(value_name.as_ptr()),
+            None,
+            Some(&mut ty),
+            Some(buf.as_mut_ptr() as *mut u8),
+            Some(&mut sz),
         )
     };
 
-    if result != 0 {
-        return Err(Error::from_code(result, value_name.to_string_lossy()));
+    if result.is_err() {
+        return Err(Error::from_code(result.0 as i32, value_name.to_string_lossy()));
     }
 
     parse_value_type_data(ty, buf)
@@ -338,8 +376,8 @@ pub fn u16_to_u8_vec(mut vec: Vec<u16>) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub(crate) fn parse_value_type_data(ty: u32, buf: Vec<u16>) -> Result<Data, Error> {
-    let ty = Type::try_from(ty).map_err(|_| Error::UnhandledType(ty))?;
+pub(crate) fn parse_value_type_data(ty: REG_VALUE_TYPE, buf: Vec<u16>) -> Result<Data, Error> {
+    let ty = Type::try_from(ty)?;
 
     match ty {
         Type::None => return Ok(Data::None),

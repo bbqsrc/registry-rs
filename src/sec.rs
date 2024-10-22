@@ -1,5 +1,7 @@
 #![allow(non_upper_case_globals)]
 
+use windows::Win32::System::Registry::REG_SAM_FLAGS;
+
 bitflags::bitflags! {
     /// A safe representation of ACL bitflags.
     pub struct Security: u32 {
@@ -21,5 +23,11 @@ bitflags::bitflags! {
 impl Default for Security {
     fn default() -> Self {
         Security::AllAccess
+    }
+}
+
+impl From<Security> for REG_SAM_FLAGS {
+    fn from(sec: Security) -> Self {
+        REG_SAM_FLAGS(sec.bits())
     }
 }
