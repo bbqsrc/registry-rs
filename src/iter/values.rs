@@ -1,8 +1,7 @@
 use std::{convert::TryInto, fmt::Debug, ptr::null_mut};
 
 use utfx::{U16CStr, U16CString};
-use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
-use winapi::um::winreg::{RegEnumValueW, RegQueryInfoKeyW};
+use windows::{core::PWSTR, Win32::{Foundation::ERROR_NO_MORE_ITEMS, System::Registry::{RegEnumValueW, RegQueryInfoKeyW, REG_VALUE_TYPE}}};
 
 use crate::{key::RegKey, Data};
 
@@ -108,23 +107,23 @@ impl<'a> Iterator for Values<'a> {
             RegEnumValueW(
                 self.regkey.handle,
                 self.index,
-                self.name_buf.as_mut_ptr(),
+                PWSTR(self.name_buf.as_mut_ptr()),
                 &mut name_len,
-                null_mut(),
-                &mut data_type,
-                self.data_buf.as_mut_ptr() as *mut u8,
-                &mut data_len,
+                None,
+                Some(&mut data_type),
+                Some(self.data_buf.as_mut_ptr() as *mut u8),
+                Some(&mut data_len),
             )
         };
 
-        if result == ERROR_NO_MORE_ITEMS as i32 {
+        if result == ERROR_NO_MORE_ITEMS {
             return None;
         }
 
-        if result != 0 {
+        if result.is_err() {
             return Some(Err(Error::Unknown(
                 self.index,
-                std::io::Error::from_raw_os_error(result),
+                std::io::Error::from_raw_os_error(result.0 as i32),
             )));
         }
 
@@ -135,7 +134,7 @@ impl<'a> Iterator for Values<'a> {
             Err(e) => return Some(Err(Error::InvalidNul(e))),
         };
 
-        let data = match crate::value::parse_value_type_data(data_type, self.data_buf.clone()) {
+        let data = match crate::value::parse_value_type_data(REG_VALUE_TYPE(data_type), self.data_buf.clone()) {
             Ok(v) => v,
             Err(e) => return Some(Err(Error::Data(e))),
         };
@@ -157,21 +156,21 @@ impl<'a> Values<'a> {
         let result = unsafe {
             RegQueryInfoKeyW(
                 regkey.handle,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                &mut value_count,
-                &mut max_value_name_len,
-                &mut max_value_data_len,
-                null_mut(),
-                null_mut(),
+                PWSTR(null_mut()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&mut value_count),
+                Some(&mut max_value_name_len),
+                Some(&mut max_value_data_len),
+                None,
+                None,
             )
         };
 
-        if result == 0 {
+        if result.is_ok() {
             return Ok(Values {
                 regkey,
                 name_buf: vec![0u16; max_value_name_len as usize + 1],
@@ -179,7 +178,8 @@ impl<'a> Values<'a> {
                 index: 0,
             });
         }
-
-        Err(std::io::Error::from_raw_os_error(result))
+        else {
+            Err(std::io::Error::from_raw_os_error(result.0 as i32))
+        }
     }
 }

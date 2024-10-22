@@ -4,8 +4,7 @@ use std::{
 };
 
 use utfx::{U16CString, U16String};
-use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
-use winapi::um::winreg::{RegEnumKeyExW, RegQueryInfoKeyW};
+use windows::{core::PWSTR, Win32::{Foundation::ERROR_NO_MORE_ITEMS, System::Registry::{RegEnumKeyExW, RegQueryInfoKeyW}}};
 
 use crate::key::RegKey;
 use crate::sec::Security;
@@ -84,22 +83,22 @@ impl<'a> Iterator for Keys<'a> {
             RegEnumKeyExW(
                 self.regkey.handle,
                 self.index,
-                self.buf.as_mut_ptr(),
+                PWSTR(self.buf.as_mut_ptr()),
                 &mut len,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
+                None,
+                PWSTR(null_mut()),
+                None,
+                None,
             )
         };
 
-        if result == ERROR_NO_MORE_ITEMS as i32 {
+        if result == ERROR_NO_MORE_ITEMS {
             return None;
         }
 
         self.index += 1;
 
-        if result != 0 {
+        if result.is_err() {
             // TODO: don't panic
             panic!();
         }
@@ -124,28 +123,29 @@ impl<'a> Keys<'a> {
         let result = unsafe {
             RegQueryInfoKeyW(
                 regkey.handle,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(), // &mut subkeys_len,
-                &mut subkeys_max_str_len,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
+                PWSTR(null_mut()),
+                None,
+                None,
+                None, // &mut subkeys_len,
+                Some(&mut subkeys_max_str_len),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
             )
         };
 
-        if result == 0 {
+        if result.is_ok() {
             return Ok(Keys {
                 regkey,
                 buf: vec![0u16; subkeys_max_str_len as usize + 1],
                 index: 0,
             });
         }
-
-        Err(std::io::Error::from_raw_os_error(result))
+        else {
+            return Err(std::io::Error::from_raw_os_error(result.0 as i32));
+        }
     }
 }
