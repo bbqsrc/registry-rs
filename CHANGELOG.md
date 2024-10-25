@@ -1,3 +1,7 @@
+## 1.3.0 - 2024-10-26
+
+- Improvement: replace `winapi` with `windows` crate (thanks @zaddach)
+
 ## 1.2.3 - 2023-03-24
 
 - Fix: panic with too short vec for MultiString (thanks @PyPylia)
